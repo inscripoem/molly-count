@@ -2,7 +2,7 @@
 #![no_main]
 
 use embedded_graphics::geometry::Point;
-use embedded_graphics::mono_font::{ascii::FONT_10X20, MonoTextStyle};
+use embedded_graphics::mono_font::{ascii::FONT_6X12, MonoTextStyle};
 use embedded_graphics::prelude::Drawable as _;
 use embedded_graphics::text::Text;
 use esp_backtrace as _;
@@ -46,34 +46,26 @@ fn save_record(flash: &mut FlashStorage, record: &Record) {
 
 fn draw_day_screen(fb: &mut Framebuffer, anniv: &Date, days: i64, today: &Date) {
     use core::fmt::Write as _;
-    fb.clear(EpdColor::White);
+    // static art (header, 第/天 frame, hearts, jasmine) + red day digits
+    molly_count::assets::draw_day_background(fb, days);
 
+    // runtime bottom row: anniversary + today, ASCII 6x12
     let mut since = heapless::String::<32>::new();
-    let _ = write!(since, "SINCE {:04}-{:02}-{:02}", anniv.y, anniv.m, anniv.d);
+    let _ = write!(since, "SINCE {:04}.{:02}.{:02}", anniv.y, anniv.m, anniv.d);
     Text::new(
         since.as_str(),
-        Point::new(20, 40),
-        MonoTextStyle::new(&FONT_10X20, EpdColor::Black),
-    )
-    .draw(fb)
-    .ok();
-
-    let mut days_str = heapless::String::<16>::new();
-    let _ = write!(days_str, "DAY {}", days);
-    Text::new(
-        days_str.as_str(),
-        Point::new(20, 110),
-        MonoTextStyle::new(&FONT_10X20, EpdColor::Red),
+        Point::new(8, 192),
+        MonoTextStyle::new(&FONT_6X12, EpdColor::Black),
     )
     .draw(fb)
     .ok();
 
     let mut today_str = heapless::String::<32>::new();
-    let _ = write!(today_str, "TODAY {:04}-{:02}-{:02}", today.y, today.m, today.d);
+    let _ = write!(today_str, "{:04}.{:02}.{:02}", today.y, today.m, today.d);
     Text::new(
         today_str.as_str(),
-        Point::new(20, 170),
-        MonoTextStyle::new(&FONT_10X20, EpdColor::Yellow),
+        Point::new(134, 192),
+        MonoTextStyle::new(&FONT_6X12, EpdColor::Black),
     )
     .draw(fb)
     .ok();

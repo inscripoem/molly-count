@@ -78,6 +78,37 @@ impl Framebuffer {
     pub fn packed(&self) -> &[u8] {
         &self.data
     }
+
+    /// Replace the whole framebuffer with a pre-rendered packed image.
+    pub fn load_packed(&mut self, data: &[u8; FRAME_LEN]) {
+        self.data = *data;
+    }
+
+    /// Draw a 1bpp mask (MSB-first rows) in `color` at (x, y).
+    pub fn blit_mask(
+        &mut self,
+        x: i32,
+        y: i32,
+        w: usize,
+        h: usize,
+        row_bytes: usize,
+        mask: &[u8],
+        color: EpdColor,
+    ) {
+        for yy in 0..h as i32 {
+            for xx in 0..w as i32 {
+                let px = x + xx;
+                let py = y + yy;
+                if (0..WIDTH as i32).contains(&px) && (0..HEIGHT as i32).contains(&py) {
+                    let bit = mask[yy as usize * row_bytes + xx as usize / 8]
+                        & (0x80 >> (xx % 8));
+                    if bit != 0 {
+                        self.set_pixel(px as usize, py as usize, color);
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl OriginDimensions for Framebuffer {
@@ -164,5 +195,37 @@ mod tests {
         assert!(dot.is_ok());
         // 2x2 red rect covers pixels (0,0) and (1,0) in byte 0; (2,3) stay white
         assert_eq!(fb.packed()[0], 0b11_11_01_01);
+    }
+
+    #[test]
+    fn load_packed_replaces_content() {
+        let mut fb = Framebuffer::new();
+        let mut bg = [0u8; FRAME_LEN];
+        bg[123] = 0xAB;
+        fb.load_packed(&bg);
+        assert_eq!(fb.packed()[123], 0xAB);
+        assert_eq!(fb.packed()[0], 0);
+    }
+
+    #[test]
+    fn blit_mask_draws_only_set_bits() {
+        let mut fb = Framebuffer::new();
+        fb.clear(EpdColor::White);
+        // 8x1 mask, MSB first: set pixels 0, 2, 3, 6
+        let mask = [0b1011_0010];
+        fb.blit_mask(0, 0, 8, 1, 1, &mask, EpdColor::Red);
+        // 0 red, 1 white, 2 red, 3 red, 4..7 white
+        assert_eq!(fb.packed()[0], (3 << 6) | (1 << 4) | (3 << 2) | 3);
+    }
+
+    #[test]
+    fn blit_mask_clips_at_edges() {
+        let mut fb = Framebuffer::new();
+        fb.clear(EpdColor::White);
+        // drawing past the right edge must not panic or wrap
+        fb.blit_mask(196, 0, 8, 1, 1, &[0xFF], EpdColor::Red);
+        // pixels 196..199 red, nothing wraps to the next row
+        assert_eq!(fb.packed()[49], 0xFF);
+        assert_eq!(fb.packed()[50], 0x55);
     }
 }
