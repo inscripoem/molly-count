@@ -3,18 +3,23 @@
 
 use embedded_graphics::geometry::Point;
 use embedded_graphics::mono_font::{ascii::FONT_10X20, MonoTextStyle};
+use embedded_graphics::prelude::Drawable as _;
 use embedded_graphics::text::Text;
 use esp_backtrace as _;
 use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull};
 use esp_hal::i2c::master::{Config as I2cConfig, I2c};
 use esp_hal::spi::master::{Config as SpiConfig, Spi};
 use esp_hal::time::{Duration, Instant, Rate};
-use molly_count::civil::{Date, DateTime};
+use esp_hal::usb::usb_serial_jtag::UsbSerialJtag;
+use esp_storage::FlashStorage;
+use molly_count::civil::{parse_date, parse_hms, Date, DateTime};
 use molly_count::framebuffer::{EpdColor, Framebuffer};
+use molly_count::store::{Record, RECORD_LEN, SECTOR};
 
+mod console;
 mod epd1in54g;
 mod pcf85063;
-use embedded_graphics::prelude::Drawable as _;
+use console::Console;
 use epd1in54g::Epd1in54g;
 use pcf85063::Pcf85063;
 
@@ -23,15 +28,28 @@ esp_bootloader_esp_idf::esp_app_desc!();
 // 10KB framebuffer: too big for the default stack, lives in static RAM.
 static mut FRAMEBUFFER: Framebuffer = Framebuffer::new();
 
-/// Placeholder until the serial console (M3b) writes it to NVS.
-const ANNIVERSARY: Date = Date::new(2025, 2, 14);
+/// Used when the flash record is blank (first boot ever).
+const DEFAULT_ANNIVERSARY: Date = Date::new(2025, 2, 14);
 
-fn draw_day_screen(fb: &mut Framebuffer, days: i64, today: &Date) {
+fn load_record(flash: &mut FlashStorage) -> Option<Record> {
+    let mut buf = [0u8; RECORD_LEN];
+    flash.read(SECTOR, &mut buf).ok()?;
+    Record::unpack(&buf)
+}
+
+fn save_record(flash: &mut FlashStorage, record: &Record) {
+    let packed = record.pack();
+    if let Err(e) = flash.write(SECTOR, &packed) {
+        esp_println::println!("flash write failed: {:?}", e);
+    }
+}
+
+fn draw_day_screen(fb: &mut Framebuffer, anniv: &Date, days: i64, today: &Date) {
     use core::fmt::Write as _;
     fb.clear(EpdColor::White);
 
     let mut since = heapless::String::<32>::new();
-    let _ = write!(since, "SINCE {:04}-{:02}-{:02}", ANNIVERSARY.y, ANNIVERSARY.m, ANNIVERSARY.d);
+    let _ = write!(since, "SINCE {:04}-{:02}-{:02}", anniv.y, anniv.m, anniv.d);
     Text::new(
         since.as_str(),
         Point::new(20, 40),
@@ -92,40 +110,102 @@ fn main() -> ! {
     .with_scl(p.GPIO48);
     let mut rtc = Pcf85063::new(i2c);
 
-    // M3a test hook: seed the RTC with a known time on every boot so the
-    // I2C write path is exercised. Replaced by the serial console in M3b.
-    rtc.set_datetime(DateTime::new(Date::new(2026, 9, 14), 8, 30, 0))
-        .unwrap();
+    let mut flash = FlashStorage::new(p.FLASH);
+    let mut record = load_record(&mut flash).unwrap_or_else(|| {
+        esp_println::println!("flash record blank, using placeholder");
+        Record::placeholder()
+    });
 
+    // ---- console phase (USB-CDC), max ~15s ----
+    let mut console = Console::new(UsbSerialJtag::new(p.USB_DEVICE));
+    console.print(
+        "molly-count console\r\nSETDATE y-m-d h:m:s | SETANNIV y-m-d | GET\r\n",
+    );
+    let console_start = Instant::now();
+    let mut save_needed = false;
+    while console_start.elapsed() < Duration::from_secs(15) {
+        let Some(line) = console.read_line(3000) else { break };
+        let mut parts = line.split_ascii_whitespace();
+        match parts.next() {
+            Some("SETDATE") => {
+                let d = parts.next().and_then(parse_date);
+                let t = parts.next().and_then(parse_hms);
+                match (d, t) {
+                    (Some(date), Some((hh, mm, ss))) => {
+                        match rtc.set_datetime(DateTime::new(date, hh, mm, ss)) {
+                            Ok(()) => console.print("OK DATE\r\n"),
+                            Err(_) => console.print("ERR RTC\r\n"),
+                        }
+                    }
+                    _ => console.print("ERR usage: SETDATE y-m-d h:m:s\r\n"),
+                }
+            }
+            Some("SETANNIV") => match parts.next().and_then(parse_date) {
+                Some(date) => {
+                    record.anniv = date;
+                    save_needed = true;
+                    console.print("OK ANNIV\r\n");
+                }
+                None => console.print("ERR usage: SETANNIV y-m-d\r\n"),
+            },
+            Some("GET") => {
+                if let Ok(now) = rtc.datetime() {
+                    let mut s = heapless::String::<96>::new();
+                    use core::fmt::Write as _;
+                    let _ = write!(
+                        s,
+                        "ANNIV {:04}-{:02}-{:02} LAST {}\r\n",
+                        record.anniv.y, record.anniv.m, record.anniv.d, record.last_shown_days
+                    );
+                    console.print(s.as_str());
+                }
+            }
+            _ => console.print("ERR?\r\n"),
+        }
+    }
+    if save_needed {
+        save_record(&mut flash, &record);
+        console.print("SAVED\r\n");
+    }
+
+    // ---- day computation ----
     let now = rtc.datetime().unwrap();
+    let days = record.anniv.days_since(now.date);
     esp_println::println!(
-        "rtc: {:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+        "rtc: {:04}-{:02}-{:02} {:02}:{:02}:{:02}, days: {}",
         now.date.y,
         now.date.m,
         now.date.d,
         now.hh,
         now.mm,
-        now.ss
+        now.ss,
+        days
     );
-    let days = ANNIVERSARY.days_since(now.date);
-    esp_println::println!("days since {:?}: {}", ANNIVERSARY, days);
 
     let mut epd = Epd1in54g::new(spi, cs, dc, rst, busy, pwr);
 
-    let fb = unsafe { &mut *(&raw mut FRAMEBUFFER) };
-    draw_day_screen(fb, days, &now.date);
+    if days != record.last_shown_days {
+        let fb = unsafe { &mut *(&raw mut FRAMEBUFFER) };
+        draw_day_screen(fb, &record.anniv, days, &now.date);
 
-    esp_println::println!("epd init + display (full refresh, ~20s)...");
-    let t0 = Instant::now();
-    epd.init().unwrap();
-    epd.display(fb).unwrap();
-    esp_println::println!(
-        "refresh done in {} ms, panel sleep + rail off",
-        t0.elapsed().as_millis()
-    );
+        esp_println::println!("day changed -> full refresh (~20s)...");
+        let t0 = Instant::now();
+        epd.init().unwrap();
+        epd.display(fb).unwrap();
+        esp_println::println!(
+            "refresh done in {} ms, panel sleep + rail off",
+            t0.elapsed().as_millis()
+        );
+        epd.sleep().unwrap();
+        epd.power_off();
 
-    epd.sleep().unwrap();
-    epd.power_off();
+        record.last_shown_days = days;
+        save_record(&mut flash, &record);
+        console.print("DISPLAY UPDATED\r\n");
+    } else {
+        esp_println::println!("day unchanged, skip refresh");
+        console.print("UNCHANGED\r\n");
+    }
 
     // Slow blink = update cycle finished.
     let mut led = Output::new(p.GPIO3, Level::High, OutputConfig::default());

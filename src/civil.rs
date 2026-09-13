@@ -67,6 +67,42 @@ pub fn civil_from_days(z: i64) -> (i32, u8, u8) {
     ((y + if m <= 2 { 1 } else { 0 }) as i32, m, d)
 }
 
+/// Parse a strict `YYYY-MM-DD` string.
+pub fn parse_date(s: &str) -> Option<Date> {
+    let b = s.as_bytes();
+    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return None;
+    }
+    let num = |r: core::ops::Range<usize>| -> Option<i64> {
+        core::str::from_utf8(&b[r]).ok()?.parse().ok()
+    };
+    let y = num(0..4)?;
+    let m = num(5..7)?;
+    let d = num(8..10)?;
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
+        return None;
+    }
+    Some(Date::new(y as i32, m as u8, d as u8))
+}
+
+/// Parse a strict `HH:MM:SS` string (24-hour).
+pub fn parse_hms(s: &str) -> Option<(u8, u8, u8)> {
+    let b = s.as_bytes();
+    if b.len() != 8 || b[2] != b':' || b[5] != b':' {
+        return None;
+    }
+    let num = |r: core::ops::Range<usize>| -> Option<u8> {
+        core::str::from_utf8(&b[r]).ok()?.parse().ok()
+    };
+    let hh = num(0..2)?;
+    let mm = num(3..5)?;
+    let ss = num(6..8)?;
+    if hh > 23 || mm > 59 || ss > 59 {
+        return None;
+    }
+    Some((hh, mm, ss))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,5 +153,23 @@ mod tests {
     fn month_rollover() {
         assert_eq!(Date::from_days(days_from_civil(2026, 1, 31) + 1), Date::new(2026, 2, 1));
         assert_eq!(Date::from_days(days_from_civil(2026, 12, 31) + 1), Date::new(2027, 1, 1));
+    }
+
+    #[test]
+    fn parse_date_strict() {
+        assert_eq!(parse_date("2025-02-14"), Some(Date::new(2025, 2, 14)));
+        assert_eq!(parse_date("2025-2-14"), None); // must be zero-padded
+        assert_eq!(parse_date("2025-13-01"), None);
+        assert_eq!(parse_date("2025-00-10"), None);
+        assert_eq!(parse_date("2025/02/14"), None);
+        assert_eq!(parse_date(""), None);
+    }
+
+    #[test]
+    fn parse_hms_strict() {
+        assert_eq!(parse_hms("08:30:00"), Some((8, 30, 0)));
+        assert_eq!(parse_hms("23:59:59"), Some((23, 59, 59)));
+        assert_eq!(parse_hms("24:00:00"), None);
+        assert_eq!(parse_hms("8:30:00"), None);
     }
 }
