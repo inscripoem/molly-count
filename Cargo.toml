@@ -1,0 +1,28 @@
+[package]
+name = "molly-count"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+embedded-graphics = "0.8.2"
+embedded-hal = "1.0"
+esp-backtrace = { optional = true,  version = "0.20.0", features = ["esp32s3", "panic-handler", "println"] }
+esp-bootloader-esp-idf = { optional = true,  version = "0.6.0", features = ["esp32s3"] }
+esp-hal = { optional = true,  version = "1.2.1", features = ["esp32s3"] }
+esp-println = { optional = true,  version = "0.18.0", features = ["esp32s3", "jtag-serial"], default-features = false }
+heapless = "0.9.3"
+
+[features]
+default = ["hw"]
+# esp-hal's build script refuses to run for the host target, so all esp deps
+# are optional: host-side unit tests run with --no-default-features.
+hw = ["dep:esp-hal", "dep:esp-backtrace", "dep:esp-println", "dep:esp-bootloader-esp-idf"]
+
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1
+debug = 2
+lto = "fat"
+opt-level = "s"
