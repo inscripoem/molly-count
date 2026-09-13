@@ -9,6 +9,7 @@ use esp_backtrace as _;
 use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull};
 use esp_hal::i2c::master::{Config as I2cConfig, I2c};
 use esp_hal::spi::master::{Config as SpiConfig, Spi};
+use esp_hal::rtc_cntl::sleep::{LowPower, RtcSleepConfig};
 use esp_hal::time::{Duration, Instant, Rate};
 use esp_hal::usb::usb_serial_jtag::UsbSerialJtag;
 use esp_storage::FlashStorage;
@@ -115,6 +116,7 @@ fn main() -> ! {
     );
     let console_start = Instant::now();
     let mut save_needed = false;
+    let mut sleep_override: Option<u64> = None;
     while console_start.elapsed() < Duration::from_secs(15) {
         let Some(line) = console.read_line(3000) else { break };
         let mut parts = line.split_ascii_whitespace();
@@ -139,6 +141,13 @@ fn main() -> ! {
                     console.print("OK ANNIV\r\n");
                 }
                 None => console.print("ERR usage: SETANNIV y-m-d\r\n"),
+            },
+            Some("SLEEP") => match parts.next().and_then(|s| s.parse::<u64>().ok()) {
+                Some(secs) => {
+                    sleep_override = Some(secs);
+                    console.print("OK SLEEP\r\n");
+                }
+                None => console.print("ERR usage: SLEEP seconds\r\n"),
             },
             Some("GET") => {
                 if let Ok(now) = rtc.datetime() {
@@ -199,13 +208,34 @@ fn main() -> ! {
         console.print("UNCHANGED\r\n");
     }
 
-    // Slow blink = update cycle finished.
+    // two quick blinks = update cycle finished, about to sleep
     let mut led = Output::new(p.GPIO3, Level::High, OutputConfig::default());
-    loop {
+    for _ in 0..4 {
         led.toggle();
         let start = Instant::now();
-        while start.elapsed() < Duration::from_millis(500) {
+        while start.elapsed() < Duration::from_millis(150) {
             core::hint::spin_loop();
         }
+    }
+
+    // ---- deep sleep until 08:00 (or SLEEP override for testing) ----
+    let now2 = rtc.datetime().unwrap();
+    let secs = sleep_override.unwrap_or_else(|| seconds_until_next(8, now2));
+    esp_println::println!("deep sleep for {} s (wake at 08:00)", secs);
+    console.print("SLEEPING\r\n");
+
+    let mut lp = LowPower::new(p.LPWR);
+    lp.set_wakeup_deadline(Instant::now() + Duration::from_secs(secs));
+    lp.sleep_deep(RtcSleepConfig::default());
+}
+
+fn seconds_until_next(hour: u8, now: DateTime) -> u64 {
+    const DAY: u64 = 24 * 3600;
+    let now_secs = now.hh as u64 * 3600 + now.mm as u64 * 60 + now.ss as u64;
+    let target = hour as u64 * 3600;
+    if now_secs < target {
+        target - now_secs
+    } else {
+        DAY - (now_secs - target)
     }
 }
