@@ -117,7 +117,7 @@ def draw_main(mode):
         battery(d, 166, 6, 28, 15)
 
     # line 2: tracked title (binary-rendered for clean strokes)
-    masked_tracked(img, 10, 36, "我们在一起", 18, 900, ink, 21)
+    masked_tracked(img, 10, 36, "我们在一起", 22, 900, ink, 26)
 
 
     if mode == "charge":
