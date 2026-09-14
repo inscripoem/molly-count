@@ -93,9 +93,9 @@ def chip(d, x, y, color):
 
 
 def rules(d, ink):
-    d.rectangle(fpx(8, 140, 192, 144), fill=RED)    # 4px
-    d.rectangle(fpx(8, 146, 192, 149), fill=YELLOW) # 3px
-    d.rectangle(fpx(8, 151, 192, 154), fill=ink)    # 3px, white on charge
+    d.rectangle(fpx(8, 136, 192, 140), fill=RED)    # 4px
+    d.rectangle(fpx(8, 142, 192, 145), fill=YELLOW) # 3px
+    d.rectangle(fpx(8, 147, 192, 150), fill=ink)    # 3px, white on charge
 
 
 def footer(img, d, ink, day_code=False):
@@ -114,10 +114,10 @@ def draw_main(mode):
 
     # line 1: battery icon top-right on the low screen; date is runtime
     if mode == "low":
-        battery(d, 166, 8, 28, 15)
+        battery(d, 166, 6, 28, 15)
 
     # line 2: tracked title (binary-rendered for clean strokes)
-    masked_tracked(img, 10, 38, "我们在一起", 12, 900, ink, 16)
+    masked_tracked(img, 10, 36, "我们在一起", 14, 900, ink, 18)
 
 
     if mode == "charge":
@@ -131,11 +131,11 @@ def draw_main(mode):
     rules(d, ink)
 
     if mode == "charge":
-        chip(d, 8, 170, YELLOW)
-        masked_text(img, 21, 170, "LOW_POWER", 11, 600, ink)
-        masked_text(img, 192, 170, "USB_REQUIRED", 9, 500, ink, anchor="rm")
+        chip(d, 8, 171, YELLOW)
+        masked_text(img, 21, 171, "LOW_POWER", 10, 600, ink)
+        masked_text(img, 192, 171, "USB_REQUIRED", 9, 500, ink, anchor="rm")
     else:
-        chip(d, 8, 170, BLACK)
+        chip(d, 8, 171, BLACK)
         # SINCE_ text is runtime (firmware), row stays empty
 
     footer(img, d, ink)
@@ -229,8 +229,8 @@ def compose(idx_bg, day, runtime_texts=True):
             return f
         # approximates the firmware's FONT_9X15_BOLD runtime rendering
         d = ImageDraw.Draw(img)
-        d.text((10, 20), "2026.09.14", font=rfont(12, 500), fill=BLACK, anchor="lm")
-        d.text((21, 170), "SINCE_2024.01.01", font=rfont(12, 800), fill=BLACK, anchor="lm")
+        d.text((10, 12), "2026.09.14", font=rfont(8, 500), fill=BLACK, anchor="lm")
+        d.text((21, 171), "SINCE_2024.01.01", font=rfont(12, 800), fill=BLACK, anchor="lm")
 
     return img.resize((W * 3, H * 3), Image.NEAREST)
 

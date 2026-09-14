@@ -2,7 +2,7 @@
 #![no_main]
 
 use embedded_graphics::geometry::Point;
-use embedded_graphics::mono_font::{ascii::FONT_9X15_BOLD, MonoTextStyle};
+use embedded_graphics::mono_font::{ascii::FONT_6X12, ascii::FONT_9X15_BOLD, MonoTextStyle};
 use embedded_graphics::prelude::Drawable as _;
 use embedded_graphics::text::Text;
 use esp_backtrace as _;
@@ -57,11 +57,10 @@ fn draw_screen(fb: &mut Framebuffer, state: BattState, anniv: &Date, days: i64, 
     // top-right date, right-aligned (chip slots live in the static background)
     let mut date = heapless::String::<16>::new();
     let _ = write!(date, "{:04}.{:02}.{:02}", today.y, today.m, today.d);
-    Text::with_alignment(
+    Text::new(
         date.as_str(),
-        Point::new(192, 20),
-        MonoTextStyle::new(&FONT_9X15_BOLD, EpdColor::Black),
-        embedded_graphics::text::Alignment::Right,
+        Point::new(10, 18),
+        MonoTextStyle::new(&FONT_6X12, EpdColor::Black),
     )
     .draw(fb)
     .ok();
