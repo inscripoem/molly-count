@@ -125,8 +125,8 @@ def draw_main(mode):
         masked_text(img, 100, 112, "接上 USB 稍作休息", 13, 500, YELLOW, anchor="mm")
     else:
         # hero area stays white: digits are runtime-blitted from masks
-        d.rounded_rectangle(fpx(158, 90, 184, 114), radius=1 * S, fill=RED)
-        masked_text(img, 171, 102, "天", 16, 700, WHITE, anchor="mm")
+        d.rounded_rectangle(fpx(158, 104, 184, 128), radius=1 * S, fill=RED)
+        masked_text(img, 171, 116, "天", 16, 700, WHITE, anchor="mm")
 
     rules(d, ink)
 
