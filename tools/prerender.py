@@ -39,7 +39,7 @@ PALETTE = [
 DIGIT_BOX_W, DIGIT_BOX_H = 52, 88
 DIGIT_ROW_BYTES = (DIGIT_BOX_W + 7) // 8
 DIGIT_ADVANCE = 52
-DIGIT_Y = 50           # top of digit row
+DIGIT_Y = 36           # top of digit row
 DIGIT_RIGHT = 164      # right edge of the last digit box
 
 
@@ -80,60 +80,59 @@ def chip(d, x, y, color):
 
 
 def header(d, ink):
-    d.rectangle(fp(10, 11, 14, 15), fill=RED)
-    tracked(d, 19, 13, "我们在一起", 9, 500, ink, 12)
+    d.rectangle(fp(10, 8, 16, 14), fill=RED)
+    tracked(d, 22, 11, "我们在一起", 12, 500, ink, 16)
     # top-right date is runtime text (firmware), area stays empty
 
 
-def rules(d):
-    d.rectangle(fp(8, 142, 192, 144), fill=RED)
-    d.rectangle(fp(8, 146, 192, 147), fill=YELLOW)
+def rules(d, ink):
+    d.rectangle(fp(8, 124, 192, 128), fill=RED)
+    d.rectangle(fp(8, 130, 192, 133), fill=YELLOW)
+    d.rectangle(fp(8, 135, 192, 138), fill=ink)
 
 
 def footer(d, ink, day_code=False):
     d.rectangle(fp(0, 184, W, 200), fill=ink)
     bar_ink = WHITE if ink == BLACK else BLACK
-    d.text((8 * S, 192 * S), "MC_2026 // STEREO", font=load_font(8, 700),
+    d.text((8 * S, 192 * S), "MC_2026 // STEREO", font=load_font(9, 700),
            fill=bar_ink, anchor="lm")
     code = f"T-{day_code}" if day_code else "E"
     d.text((192 * S, 192 * S), code, font=load_font(8, 900), fill=YELLOW, anchor="rm")
 
 
 def draw_main(mode):
-    """mode: normal | low | charge"""
-    ink = BLACK
-    img = Image.new("RGB", (W * S, H * S), WHITE)
+    """mode: normal | low | charge (charge renders on an inverted black field)"""
+    charge = mode == "charge"
+    ink = WHITE if charge else BLACK
+    img = Image.new("RGB", (W * S, H * S), BLACK if charge else WHITE)
     d = ImageDraw.Draw(img)
 
     header(d, ink)
 
     if mode == "charge":
-        d.text((100 * S, 82 * S), "请充电", font=load_font(34, 900), fill=ink, anchor="mm")
-        d.text((100 * S, 114 * S), "接上 USB 稍作休息", font=load_font(11, 500),
+        d.text((100 * S, 78 * S), "请充电", font=load_font(36, 900), fill=ink, anchor="mm")
+        d.text((100 * S, 112 * S), "接上 USB 稍作休息", font=load_font(13, 500),
                fill=YELLOW, anchor="mm")
     else:
         # hero area stays white: digits are runtime-blitted from masks
-        d.rounded_rectangle(fp(152, 102, 178, 126), radius=1 * S, fill=RED)
-        d.text((165 * S, 114 * S), "天", font=load_font(16, 700), fill=WHITE, anchor="mm")
+        d.rounded_rectangle(fp(158, 86, 184, 110), radius=1 * S, fill=RED)
+        d.text((171 * S, 98 * S), "天", font=load_font(16, 700), fill=WHITE, anchor="mm")
         if mode == "low":
-            battery(d, 168, 54, 26, 14)
+            battery(d, 164, 42, 28, 16)
 
-    rules(d)
-
-    if mode == "charge":
-        chip(d, 8, 164, YELLOW)
-        d.text((15 * S, 164 * S), "LOW_POWER", font=load_font(9, 600), fill=ink, anchor="lm")
-        d.text((192 * S, 164 * S), "USB_REQUIRED", font=load_font(8, 500), fill=ink, anchor="rm")
-    else:
-        chip(d, 8, 164, BLACK)
-        chip(d, 120, 164, RED)
-        # SINCE_/TODAY_ texts are runtime (firmware), area stays empty
+    rules(d, ink)
 
     if mode == "charge":
+        chip(d, 8, 156, YELLOW)
+        d.text((22 * S, 156 * S), "LOW_POWER", font=load_font(11, 600), fill=ink, anchor="lm")
+        d.text((192 * S, 156 * S), "USB_REQUIRED", font=load_font(9, 500), fill=ink, anchor="rm")
         footer(d, ink)
-        d.text((8 * S, 172 * S), "PLUG_IN_USB // RESUME", font=load_font(7, 500),
+        d.text((8 * S, 176 * S), "PLUG_IN_USB // RESUME", font=load_font(9, 500),
                fill=ink, anchor="lm")
     else:
+        # SINCE_/TODAY_ texts are runtime (firmware 9x15 bold), chips static
+        chip(d, 8, 156, BLACK)
+        chip(d, 8, 174, RED)
         footer(d, ink, day_code=122)
 
     return img.resize((W, H), Image.LANCZOS)
@@ -211,10 +210,17 @@ def compose(idx_bg, day, runtime_texts=True):
             x_end -= DIGIT_ADVANCE
 
     if runtime_texts:
-        f9 = load_font(9, 600)
-        d.text((15 * S, 164 * S), "SINCE_2024.01.01", font=f9, fill=BLACK, anchor="lm")
-        d.text((127 * S, 164 * S), "TODAY_09.14", font=load_font(9, 500), fill=BLACK, anchor="lm")
-        d.text((192 * S, 17 * S), "2026.09.14", font=load_font(9, 500), fill=BLACK, anchor="rm")
+        # approximates the firmware's FONT_9X15_BOLD rendering
+        def rfont(size, weight=700):
+            f = ImageFont.truetype(FONT, int(size), index=SC_INDEX)
+            try:
+                f.set_variation_by_axes([weight])
+            except Exception:
+                pass
+            return f
+        d.text((22, 156), "SINCE_2024.01.01", font=rfont(12, 800), fill=BLACK, anchor="lm")
+        d.text((22, 174), "TODAY_09.14", font=rfont(12, 800), fill=BLACK, anchor="lm")
+        d.text((192, 20), "2026.09.14", font=rfont(12, 500), fill=BLACK, anchor="rm")
 
     return img.resize((W * 3, H * 3), Image.NEAREST)
 

@@ -2,7 +2,7 @@
 #![no_main]
 
 use embedded_graphics::geometry::Point;
-use embedded_graphics::mono_font::{ascii::FONT_6X12, MonoTextStyle};
+use embedded_graphics::mono_font::{ascii::FONT_9X15_BOLD, MonoTextStyle};
 use embedded_graphics::prelude::Drawable as _;
 use embedded_graphics::text::Text;
 use esp_backtrace as _;
@@ -59,8 +59,8 @@ fn draw_screen(fb: &mut Framebuffer, state: BattState, anniv: &Date, days: i64, 
     let _ = write!(date, "{:04}.{:02}.{:02}", today.y, today.m, today.d);
     Text::with_alignment(
         date.as_str(),
-        Point::new(192, 17),
-        MonoTextStyle::new(&FONT_6X12, EpdColor::Black),
+        Point::new(192, 20),
+        MonoTextStyle::new(&FONT_9X15_BOLD, EpdColor::Black),
         embedded_graphics::text::Alignment::Right,
     )
     .draw(fb)
@@ -70,8 +70,8 @@ fn draw_screen(fb: &mut Framebuffer, state: BattState, anniv: &Date, days: i64, 
     let _ = write!(since, "SINCE_{:04}.{:02}.{:02}", anniv.y, anniv.m, anniv.d);
     Text::new(
         since.as_str(),
-        Point::new(15, 168),
-        MonoTextStyle::new(&FONT_6X12, EpdColor::Black),
+        Point::new(21, 158),
+        MonoTextStyle::new(&FONT_9X15_BOLD, EpdColor::Black),
     )
     .draw(fb)
     .ok();
@@ -80,8 +80,8 @@ fn draw_screen(fb: &mut Framebuffer, state: BattState, anniv: &Date, days: i64, 
     let _ = write!(today_str, "TODAY_{:02}.{:02}", today.m, today.d);
     Text::new(
         today_str.as_str(),
-        Point::new(127, 168),
-        MonoTextStyle::new(&FONT_6X12, EpdColor::Black),
+        Point::new(21, 176),
+        MonoTextStyle::new(&FONT_9X15_BOLD, EpdColor::Black),
     )
     .draw(fb)
     .ok();
