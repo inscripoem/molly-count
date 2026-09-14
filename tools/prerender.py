@@ -101,7 +101,7 @@ def rules(d, ink):
 def footer(img, d, ink, day_code=False):
     d.rectangle(fpx(0, 184, W, 200), fill=ink)
     bar_ink = WHITE if ink == BLACK else BLACK
-    masked_text(img, 8, 192, "MC_2026 // STEREO", 9, 700, bar_ink)
+    masked_text(img, 8, 192, "MC 2026 // STEREO", 9, 700, bar_ink)
     masked_text(img, 192, 192, "E", 9, 900, YELLOW, anchor="rm")
 
 
@@ -230,7 +230,7 @@ def compose(idx_bg, day, runtime_texts=True):
         # approximates the firmware's FONT_9X15_BOLD runtime rendering
         d = ImageDraw.Draw(img)
         d.text((10, 12), "2026.09.14", font=rfont(8, 500), fill=BLACK, anchor="lm")
-        d.text((21, 171), "SINCE_2024.01.01", font=rfont(12, 800), fill=BLACK, anchor="lm")
+        d.text((21, 170), "SINCE 2024.01.01", font=rfont(12, 800), fill=BLACK, anchor="lm")
 
     return img.resize((W * 3, H * 3), Image.NEAREST)
 

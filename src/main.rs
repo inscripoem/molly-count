@@ -66,10 +66,10 @@ fn draw_screen(fb: &mut Framebuffer, state: BattState, anniv: &Date, days: i64, 
     .ok();
 
     let mut since = heapless::String::<24>::new();
-    let _ = write!(since, "SINCE_{:04}.{:02}.{:02}", anniv.y, anniv.m, anniv.d);
+    let _ = write!(since, "SINCE {:04}.{:02}.{:02}", anniv.y, anniv.m, anniv.d);
     Text::new(
         since.as_str(),
-        Point::new(21, 170),
+        Point::new(21, 163),
         MonoTextStyle::new(&FONT_9X15_BOLD, EpdColor::Black),
     )
     .draw(fb)
