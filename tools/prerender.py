@@ -41,7 +41,7 @@ PALETTE = [
 DIGIT_BOX_W, DIGIT_BOX_H = 52, 88
 DIGIT_ROW_BYTES = (DIGIT_BOX_W + 7) // 8
 DIGIT_ADVANCE = 52
-DIGIT_Y = 46           # mask top; glyph baseline sits at DIGIT_Y+76
+DIGIT_Y = 61           # mask top; ink bottom lands on the red rule (no gap)
 DIGIT_BASELINE_IN_BOX = 76
 DIGIT_RIGHT = 164      # right edge of the last digit box
 
