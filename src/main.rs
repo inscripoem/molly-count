@@ -75,15 +75,6 @@ fn draw_screen(fb: &mut Framebuffer, state: BattState, anniv: &Date, days: i64, 
     .draw(fb)
     .ok();
 
-    let mut today_str = heapless::String::<16>::new();
-    let _ = write!(today_str, "TODAY_{:02}.{:02}", today.m, today.d);
-    Text::new(
-        today_str.as_str(),
-        Point::new(21, 176),
-        MonoTextStyle::new(&FONT_9X15_BOLD, EpdColor::Black),
-    )
-    .draw(fb)
-    .ok();
 }
 
 #[esp_hal::main]
