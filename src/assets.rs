@@ -16,12 +16,12 @@ pub const BACKGROUND_LOW: &[u8; 10000] = include_bytes!("../assets/background_lo
 pub const SCREEN_CHARGE: &[u8; 10000] = include_bytes!("../assets/screen_charge.2bpp");
 pub const DIGITS: &[u8] = include_bytes!("../assets/digits.1bpp");
 
-pub const DIGIT_BOX_W: usize = 28;
-pub const DIGIT_BOX_H: usize = 56;
+pub const DIGIT_BOX_W: usize = 52;
+pub const DIGIT_BOX_H: usize = 88;
 pub const DIGIT_ROW_BYTES: usize = (DIGIT_BOX_W + 7) / 8;
-pub const DIGIT_ADVANCE: usize = 29;
-pub const DIGIT_Y: usize = 66;
-pub const DIGIT_RIGHT: usize = 145;
+pub const DIGIT_ADVANCE: usize = 52;
+pub const DIGIT_Y: usize = 50;
+pub const DIGIT_RIGHT: usize = 164;
 
 pub fn digit_mask(d: usize) -> &'static [u8] {
     assert!(d < 10);
@@ -38,7 +38,7 @@ pub fn background_for(state: BattState) -> &'static [u8; 10000] {
     }
 }
 
-/// Compose the final screen: static background + red day digits.
+/// Compose the final screen: static background + black day digits.
 /// The charge warning screen is fully static — no digits.
 pub fn draw_day_background(fb: &mut Framebuffer, state: BattState, days: i64) {
     fb.load_packed(background_for(state));
@@ -58,7 +58,7 @@ pub fn draw_day_background(fb: &mut Framebuffer, state: BattState, days: i64) {
             DIGIT_BOX_H,
             DIGIT_ROW_BYTES,
             digit_mask(d),
-            EpdColor::Red,
+            EpdColor::Black,
         );
         x_end -= DIGIT_ADVANCE;
     }

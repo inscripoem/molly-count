@@ -46,7 +46,7 @@ fn save_record(flash: &mut FlashStorage, record: &Record) {
 
 fn draw_screen(fb: &mut Framebuffer, state: BattState, anniv: &Date, days: i64, today: &Date) {
     use core::fmt::Write as _;
-    // static art (per battery state) + red day digits
+    // static art (per battery state) + black day digits
     molly_count::assets::draw_day_background(fb, state, days);
 
     // the charge warning screen is fully static: no digits, no date row
@@ -54,21 +54,33 @@ fn draw_screen(fb: &mut Framebuffer, state: BattState, anniv: &Date, days: i64, 
         return;
     }
 
-    let mut since = heapless::String::<32>::new();
-    let _ = write!(since, "SINCE {:04}.{:02}.{:02}", anniv.y, anniv.m, anniv.d);
+    // top-right date, right-aligned (chip slots live in the static background)
+    let mut date = heapless::String::<16>::new();
+    let _ = write!(date, "{:04}.{:02}.{:02}", today.y, today.m, today.d);
+    Text::with_alignment(
+        date.as_str(),
+        Point::new(192, 17),
+        MonoTextStyle::new(&FONT_6X12, EpdColor::Black),
+        embedded_graphics::text::Alignment::Right,
+    )
+    .draw(fb)
+    .ok();
+
+    let mut since = heapless::String::<24>::new();
+    let _ = write!(since, "SINCE_{:04}.{:02}.{:02}", anniv.y, anniv.m, anniv.d);
     Text::new(
         since.as_str(),
-        Point::new(8, 192),
+        Point::new(15, 168),
         MonoTextStyle::new(&FONT_6X12, EpdColor::Black),
     )
     .draw(fb)
     .ok();
 
-    let mut today_str = heapless::String::<32>::new();
-    let _ = write!(today_str, "{:04}.{:02}.{:02}", today.y, today.m, today.d);
+    let mut today_str = heapless::String::<16>::new();
+    let _ = write!(today_str, "TODAY_{:02}.{:02}", today.m, today.d);
     Text::new(
         today_str.as_str(),
-        Point::new(134, 192),
+        Point::new(127, 168),
         MonoTextStyle::new(&FONT_6X12, EpdColor::Black),
     )
     .draw(fb)
