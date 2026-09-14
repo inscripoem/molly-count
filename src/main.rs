@@ -207,7 +207,7 @@ fn main() -> ! {
 
     // ---- day + battery state ----
     let now = rtc.datetime().unwrap();
-    let days = record.anniv.days_since(now.date);
+    let days = record.anniv.day_number(now.date); // anniversary = day 1
     let prev_state = BattState::from_kind_byte(record.screen_kind);
     let state = batttest.unwrap_or_else(|| battery::next_state(prev_state, vbat_mv));
     let kind = state.kind_byte();

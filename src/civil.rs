@@ -38,6 +38,12 @@ impl Date {
         other.to_days() - self.to_days()
     }
 
+    /// "Day N" count with the anniversary itself as day 1 (the usual
+    /// convention for a couples' counter): May 16 -> May 16 is day 1.
+    pub fn day_number(self, today: Date) -> i64 {
+        self.days_since(today) + 1
+    }
+
     pub fn from_days(z: i64) -> Self {
         let (y, m, d) = civil_from_days(z);
         Self { y, m, d }
@@ -135,6 +141,16 @@ mod tests {
         assert_eq!(anniv.days_since(Date::new(2026, 2, 15)), 366);
         // same date = day 0
         assert_eq!(anniv.days_since(anniv), 0);
+    }
+
+    #[test]
+    fn day_number_counts_anniversary_as_day_one() {
+        let anniv = Date::new(2026, 5, 16);
+        assert_eq!(anniv.day_number(anniv), 1);
+        assert_eq!(anniv.day_number(Date::new(2026, 5, 17)), 2);
+        // hand-checked: May 16 (1) + May rest 15 + Jun 30 + Jul 31 + Aug 31
+        //             + Sep 14 => 1+15+30+31+31+14 = 122
+        assert_eq!(anniv.day_number(Date::new(2026, 9, 14)), 122);
     }
 
     #[test]
