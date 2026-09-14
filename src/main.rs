@@ -3,6 +3,7 @@
 
 use embedded_graphics::geometry::Point;
 use embedded_graphics::mono_font::{ascii::FONT_6X12, ascii::FONT_9X15_BOLD, MonoTextStyle};
+use embedded_graphics::text::{Baseline, TextStyleBuilder};
 use embedded_graphics::prelude::Drawable as _;
 use embedded_graphics::text::Text;
 use esp_backtrace as _;
@@ -67,10 +68,13 @@ fn draw_screen(fb: &mut Framebuffer, state: BattState, anniv: &Date, days: i64, 
 
     let mut since = heapless::String::<24>::new();
     let _ = write!(since, "SINCE {:04}.{:02}.{:02}", anniv.y, anniv.m, anniv.d);
-    Text::new(
+    // Text::new's default baseline is Alphabetic (position.y = BASELINE);
+    // Middle anchors the text's vertical center to position.y = chip center
+    Text::with_baseline(
         since.as_str(),
-        Point::new(21, 163),
+        Point::new(21, 171),
         MonoTextStyle::new(&FONT_9X15_BOLD, EpdColor::Black),
+        Baseline::Middle,
     )
     .draw(fb)
     .ok();
