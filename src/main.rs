@@ -70,7 +70,7 @@ fn draw_screen(fb: &mut Framebuffer, state: BattState, anniv: &Date, days: i64, 
     let _ = write!(since, "SINCE_{:04}.{:02}.{:02}", anniv.y, anniv.m, anniv.d);
     Text::new(
         since.as_str(),
-        Point::new(21, 158),
+        Point::new(21, 170),
         MonoTextStyle::new(&FONT_9X15_BOLD, EpdColor::Black),
     )
     .draw(fb)

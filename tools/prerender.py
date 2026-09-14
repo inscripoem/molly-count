@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """Generates molly-count display assets.
 
-Outputs (into ../assets/ relative to this file):
-  background.2bpp      normal screen: everything static except the day digits
-  background_low.2bpp  same + battery icon (top right)
-  screen_charge.2bpp   full-screen static charge warning (inverted black)
-  digits.1bpp          ten digit glyph masks, blitted at runtime in black
-  preview_*.png        3x composites matching what the firmware renders
+Design: Swiss grid + Arknights Lone Trail label elements.
 
-Design: Swiss-grid "Concept A" + Arknights Lone Trail label elements
-(tracked header, 80px hero numeral, red 天 badge, red+yellow rules,
-chip-labeled metadata row, black footer bar with codes).
+Layout (200x200), top to bottom:
+  line 1  runtime date (left) / battery icon (right, low state only)
+  line 2  tracked title 我们在一起 (binary-rendered)
+  hero    runtime day digits (80px masks) + red 天 badge
+  rules   red / yellow / ink triple line
+  row     chip + runtime SINCE_ text (single row)
+  footer  black bar with label codes
+
+All saturated (red/yellow) and on-black texts are binary-rendered
+(masked, no anti-aliasing) so quantization never speckles them.
 """
 from pathlib import Path
 
@@ -29,30 +31,28 @@ RED, YELLOW = (205, 35, 50), (250, 195, 25)
 
 # 2bpp code -> RGB, ordered by code (quantizer index == code)
 PALETTE = [
-    (0, 0, 0),        # 0 black
-    (255, 255, 255),  # 1 white
-    (250, 195, 25),   # 2 yellow
-    (205, 35, 50),    # 3 red
+    BLACK,
+    WHITE,
+    YELLOW,
+    RED,
 ]
 
 # digit glyph geometry — keep in sync with src/assets.rs
 DIGIT_BOX_W, DIGIT_BOX_H = 52, 88
 DIGIT_ROW_BYTES = (DIGIT_BOX_W + 7) // 8
 DIGIT_ADVANCE = 52
-DIGIT_Y = 36           # top of digit row
+DIGIT_Y = 46           # mask top; glyph baseline sits at DIGIT_Y+76
+DIGIT_BASELINE_IN_BOX = 76
 DIGIT_RIGHT = 164      # right edge of the last digit box
 
 
-def fpx(v):
-    return v * S
-
-
-def fp(*vs):
+def fpx(*vs):
     return [v * S for v in vs]
 
 
-def load_font(size, weight=700):
-    f = ImageFont.truetype(FONT, int(size * S), index=SC_INDEX)
+def load_font(size, weight=700, raw=False):
+    px = int(size if raw else size * S)
+    f = ImageFont.truetype(FONT, px, index=SC_INDEX)
     try:
         f.set_variation_by_axes([weight])
     except Exception:
@@ -60,85 +60,89 @@ def load_font(size, weight=700):
     return f
 
 
-def tracked(d, x, y, s, size, weight, fill, step):
+def masked_text(img, x, y, text, size, weight, color, anchor="lm"):
+    """Binary text (no anti-aliasing): crisp edges, no quantizer fringing."""
+    mask = Image.new("L", (W * S, H * S), 0)
+    md = ImageDraw.Draw(mask)
+    md.text((x * S, y * S), text, font=load_font(size, weight), fill=255, anchor=anchor)
+    mask = mask.point(lambda v: 255 if v >= 128 else 0)
+    img.paste(Image.new("RGB", img.size, color), (0, 0), mask)
+
+
+def masked_tracked(img, x, y, s, size, weight, color, step):
+    mask = Image.new("L", (W * S, H * S), 0)
+    md = ImageDraw.Draw(mask)
     f = load_font(size, weight)
     for i, ch in enumerate(s):
-        d.text((x * S + i * step * S, y * S), ch, font=f, fill=fill, anchor="lm")
+        md.text(((x + i * step) * S, y * S), ch, font=f, fill=255, anchor="lm")
+    mask = mask.point(lambda v: 255 if v >= 128 else 0)
+    img.paste(Image.new("RGB", img.size, color), (0, 0), mask)
 
 
 def battery(d, x, y, w, h):
     t = int(1.2 * S)
-    d.rounded_rectangle(fp(x, y, x + w, y + h), radius=1 * S, outline=BLACK, width=t)
-    d.rounded_rectangle(fp(x + w, y + h * 0.3, x + w + w * 0.12, y + h * 0.7),
+    d.rounded_rectangle(fpx(x, y, x + w, y + h), radius=1 * S, outline=BLACK, width=t)
+    d.rounded_rectangle(fpx(x + w, y + h * 0.3, x + w + w * 0.12, y + h * 0.7),
                         radius=0.5 * S, fill=BLACK)
-    d.rounded_rectangle(fp(x + w * 0.12, y + h * 0.25, x + w * 0.38, y + h * 0.75),
+    d.rounded_rectangle(fpx(x + w * 0.12, y + h * 0.25, x + w * 0.38, y + h * 0.75),
                         radius=0.5 * S, fill=RED)
 
 
 def chip(d, x, y, color):
-    d.rectangle(fp(x, y - 5.5, x + 3, y + 5.5), fill=color)
-
-
-def header(d, ink):
-    d.rectangle(fp(10, 8, 16, 14), fill=RED)
-    tracked(d, 22, 11, "我们在一起", 12, 500, ink, 16)
-    # top-right date is runtime text (firmware), area stays empty
+    d.rectangle(fpx(x, y - 8, x + 6, y + 8), fill=color)
 
 
 def rules(d, ink):
-    d.rectangle(fp(8, 124, 192, 128), fill=RED)
-    d.rectangle(fp(8, 130, 192, 133), fill=YELLOW)
-    d.rectangle(fp(8, 135, 192, 138), fill=ink)
+    d.rectangle(fpx(8, 140, 192, 144), fill=RED)    # 4px
+    d.rectangle(fpx(8, 146, 192, 149), fill=YELLOW) # 3px
+    d.rectangle(fpx(8, 151, 192, 154), fill=ink)    # 3px, white on charge
 
 
-def footer(d, ink, day_code=False):
-    d.rectangle(fp(0, 184, W, 200), fill=ink)
+def footer(img, d, ink, day_code=False):
+    d.rectangle(fpx(0, 184, W, 200), fill=ink)
     bar_ink = WHITE if ink == BLACK else BLACK
-    d.text((8 * S, 192 * S), "MC_2026 // STEREO", font=load_font(9, 700),
-           fill=bar_ink, anchor="lm")
-    code = f"T-{day_code}" if day_code else "E"
-    d.text((192 * S, 192 * S), code, font=load_font(8, 900), fill=YELLOW, anchor="rm")
+    masked_text(img, 8, 192, "MC_2026 // STEREO", 9, 700, bar_ink)
+    masked_text(img, 192, 192, "E", 9, 900, YELLOW, anchor="rm")
 
 
 def draw_main(mode):
-    """mode: normal | low | charge (charge renders on an inverted black field)"""
+    """mode: normal | low | charge (charge on an inverted black field)"""
     charge = mode == "charge"
     ink = WHITE if charge else BLACK
     img = Image.new("RGB", (W * S, H * S), BLACK if charge else WHITE)
     d = ImageDraw.Draw(img)
 
-    header(d, ink)
+    # line 1: battery icon top-right on the low screen; date is runtime
+    if mode == "low":
+        battery(d, 166, 8, 28, 15)
+
+    # line 2: tracked title (binary-rendered for clean strokes)
+    masked_tracked(img, 10, 38, "我们在一起", 12, 900, ink, 16)
+
 
     if mode == "charge":
-        d.text((100 * S, 78 * S), "请充电", font=load_font(36, 900), fill=ink, anchor="mm")
-        d.text((100 * S, 112 * S), "接上 USB 稍作休息", font=load_font(13, 500),
-               fill=YELLOW, anchor="mm")
+        masked_text(img, 100, 80, "请充电", 36, 900, ink, anchor="mm")
+        masked_text(img, 100, 112, "接上 USB 稍作休息", 13, 500, YELLOW, anchor="mm")
     else:
         # hero area stays white: digits are runtime-blitted from masks
-        d.rounded_rectangle(fp(158, 86, 184, 110), radius=1 * S, fill=RED)
-        d.text((171 * S, 98 * S), "天", font=load_font(16, 700), fill=WHITE, anchor="mm")
-        if mode == "low":
-            battery(d, 164, 42, 28, 16)
+        d.rounded_rectangle(fpx(158, 98, 184, 122), radius=1 * S, fill=RED)
+        masked_text(img, 171, 110, "天", 16, 700, WHITE, anchor="mm")
 
     rules(d, ink)
 
     if mode == "charge":
-        chip(d, 8, 156, YELLOW)
-        d.text((22 * S, 156 * S), "LOW_POWER", font=load_font(11, 600), fill=ink, anchor="lm")
-        d.text((192 * S, 156 * S), "USB_REQUIRED", font=load_font(9, 500), fill=ink, anchor="rm")
-        footer(d, ink)
-        d.text((8 * S, 176 * S), "PLUG_IN_USB // RESUME", font=load_font(9, 500),
-               fill=ink, anchor="lm")
+        chip(d, 8, 170, YELLOW)
+        masked_text(img, 21, 170, "LOW_POWER", 11, 600, ink)
+        masked_text(img, 192, 170, "USB_REQUIRED", 9, 500, ink, anchor="rm")
     else:
-        # SINCE_/TODAY_ texts are runtime (firmware 9x15 bold), chips static
-        chip(d, 8, 156, BLACK)
-        chip(d, 8, 174, RED)
-        footer(d, ink, day_code=122)
+        chip(d, 8, 170, BLACK)
+        # SINCE_ text is runtime (firmware), row stays empty
+
+    footer(img, d, ink)
+    if mode == "charge":
+        masked_text(img, 8, 176, "PLUG_IN_USB // RESUME", 9, 500, ink)
 
     return img.resize((W, H), Image.LANCZOS)
-
-
-
 
 
 def quantize(img):
@@ -166,22 +170,29 @@ def pack_2bpp(idx):
 
 
 def digit_masks():
+    """Each glyph rendered on its BASELINE (anchor ms) so CJK font metrics
+    cannot push ink to the box bottom (which would fuse with the rules)."""
     row_bytes = (DIGIT_BOX_W + 7) // 8
     masks = []
     for chn in "0123456789":
         img = Image.new("L", (DIGIT_BOX_W * S, DIGIT_BOX_H * S), 0)
         d = ImageDraw.Draw(img)
         d.text(
-            (DIGIT_BOX_W * S // 2, DIGIT_BOX_H * S // 2),
+            (DIGIT_BOX_W * S // 2, DIGIT_BASELINE_IN_BOX * S),
             chn,
             font=load_font(80, 900),
             fill=255,
-            anchor="mm",
+            anchor="ms",
         )
         img = img.resize((DIGIT_BOX_W, DIGIT_BOX_H), Image.LANCZOS)
         a = np.asarray(img)
         bits = (a >= 128).astype(np.uint8)
         m = bytearray(row_bytes * DIGIT_BOX_H)
+        rows = [yy for yy in range(DIGIT_BOX_H) for xx in range(DIGIT_BOX_W)
+                if bits[yy, xx]]
+        assert rows, "empty digit mask"
+        assert min(rows) >= 4 and max(rows) <= DIGIT_BOX_H - 6, \
+            f"digit {chn} ink out of safe area: {min(rows)}..{max(rows)}"
         for yy in range(DIGIT_BOX_H):
             for xx in range(DIGIT_BOX_W):
                 if bits[yy, xx]:
@@ -195,7 +206,6 @@ def compose(idx_bg, day, runtime_texts=True):
     for code, (r, g, b) in enumerate(PALETTE):
         rgb[idx_bg == code] = (r, g, b)
     img = Image.fromarray(rgb)
-    d = ImageDraw.Draw(img)
 
     if day is not None:
         s = str(day)
@@ -210,7 +220,6 @@ def compose(idx_bg, day, runtime_texts=True):
             x_end -= DIGIT_ADVANCE
 
     if runtime_texts:
-        # approximates the firmware's FONT_9X15_BOLD rendering
         def rfont(size, weight=700):
             f = ImageFont.truetype(FONT, int(size), index=SC_INDEX)
             try:
@@ -218,14 +227,12 @@ def compose(idx_bg, day, runtime_texts=True):
             except Exception:
                 pass
             return f
-        d.text((22, 156), "SINCE_2024.01.01", font=rfont(12, 800), fill=BLACK, anchor="lm")
-        d.text((22, 174), "TODAY_09.14", font=rfont(12, 800), fill=BLACK, anchor="lm")
-        d.text((192, 20), "2026.09.14", font=rfont(12, 500), fill=BLACK, anchor="rm")
+        # approximates the firmware's FONT_9X15_BOLD runtime rendering
+        d = ImageDraw.Draw(img)
+        d.text((10, 20), "2026.09.14", font=rfont(12, 500), fill=BLACK, anchor="lm")
+        d.text((21, 170), "SINCE_2024.01.01", font=rfont(12, 800), fill=BLACK, anchor="lm")
 
     return img.resize((W * 3, H * 3), Image.NEAREST)
-
-
-BLACK = (0, 0, 0)
 
 
 def main():
