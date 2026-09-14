@@ -179,8 +179,8 @@ def battery_icon(d, x, y, w, h):
 
 
 def draw_charge_screen():
-    """Full-screen 'please charge' warning, everything static."""
-    img = Image.new("RGB", (W * S, H * S), (255, 255, 255))
+    """Full-screen 'please charge' warning on an inverted black background."""
+    img = Image.new("RGB", (W * S, H * S), (0, 0, 0))
     d = ImageDraw.Draw(img)
 
     black = (0, 0, 0)
@@ -188,16 +188,18 @@ def draw_charge_screen():
     yellow = (250, 195, 25)
     white = (255, 255, 255)
 
-    # ---- big empty battery, center-top ----
+    # thin white frame so the inverted screen looks intentional
+    d.rectangle([fpx(2), fpx(2), fpx(W - 3), fpx(H - 3)], outline=white, width=2 * S // 2)
+
+    # ---- big empty battery, center-top (white outline on black) ----
     bx, by, bw, bh = 58, 34, 84, 46
-    t = 3
     d.rounded_rectangle(
         [fpx(bx), fpx(by), fpx(bx + bw), fpx(by + bh)],
-        radius=fpx(4), outline=black, width=t,
+        radius=fpx(4), outline=white, width=3 * S // 2,
     )
     d.rounded_rectangle(
         [fpx(bx + bw), fpx(by + bh * 0.28), fpx(bx + bw + 9), fpx(by + bh * 0.72)],
-        radius=fpx(2), fill=black,
+        radius=fpx(2), fill=white,
     )
     # red exclamation inside
     d.rounded_rectangle(
@@ -209,17 +211,17 @@ def draw_charge_screen():
         fill=red,
     )
 
-    # ---- 请充电 ----
+    # ---- 请充电 (white: most readable on black) ----
     f_big = load_font(30 * S)
-    d.text((fpx(100), fpx(112)), "请充电", font=f_big, fill=black, anchor="mm")
+    d.text((fpx(100), fpx(112)), "请充电", font=f_big, fill=white, anchor="mm")
 
-    # ---- small reassurance line ----
+    # ---- small reassurance line (yellow accent pops on black) ----
     f_small = load_font(13 * S)
-    d.text((fpx(100), fpx(140)), "接上 USB 稍作休息", font=f_small, fill=red, anchor="mm")
+    d.text((fpx(100), fpx(140)), "接上 USB 稍作休息", font=f_small, fill=yellow, anchor="mm")
 
-    # ---- motif: heart + jasmine ----
-    heart(d, fpx(38), fpx(168), fpx(8), red, black)
-    jasmine(d, fpx(162), fpx(167), fpx(15), white, black, yellow)
+    # ---- motif: heart + jasmine (colors adjusted for black bg) ----
+    heart(d, fpx(38), fpx(168), fpx(8), red, red)
+    jasmine(d, fpx(162), fpx(167), fpx(15), black, white, yellow)
 
     img = img.resize((W, H), Image.LANCZOS)
     return img
