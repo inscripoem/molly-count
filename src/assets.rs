@@ -4,10 +4,16 @@
 //! jasmine) as a packed 2bpp framebuffer with a white hole where the day
 //! digits go. `DIGITS` holds ten 28x56 1bpp glyph masks drawn at runtime in
 //! red, right-aligned into that hole.
+//!
+//! `BACKGROUND_LOW` = same design + low-battery icon (top right).
+//! `SCREEN_CHARGE` = full-screen static charge warning (no digit hole).
 
+use crate::battery::BattState;
 use crate::framebuffer::{EpdColor, Framebuffer};
 
 pub const BACKGROUND: &[u8; 10000] = include_bytes!("../assets/background.2bpp");
+pub const BACKGROUND_LOW: &[u8; 10000] = include_bytes!("../assets/background_low.2bpp");
+pub const SCREEN_CHARGE: &[u8; 10000] = include_bytes!("../assets/screen_charge.2bpp");
 pub const DIGITS: &[u8] = include_bytes!("../assets/digits.1bpp");
 
 pub const DIGIT_BOX_W: usize = 28;
@@ -23,10 +29,23 @@ pub fn digit_mask(d: usize) -> &'static [u8] {
     &DIGITS[d * len..(d + 1) * len]
 }
 
+/// Static background matching a battery state.
+pub fn background_for(state: BattState) -> &'static [u8; 10000] {
+    match state {
+        BattState::Normal => BACKGROUND,
+        BattState::Low => BACKGROUND_LOW,
+        BattState::Critical => SCREEN_CHARGE,
+    }
+}
+
 /// Compose the final screen: static background + red day digits.
-pub fn draw_day_background(fb: &mut Framebuffer, days: i64) {
+/// The charge warning screen is fully static — no digits.
+pub fn draw_day_background(fb: &mut Framebuffer, state: BattState, days: i64) {
+    fb.load_packed(background_for(state));
+    if state == BattState::Critical {
+        return;
+    }
     use core::fmt::Write as _;
-    fb.load_packed(BACKGROUND);
     let mut s = heapless::String::<12>::new();
     let _ = write!(s, "{}", days.abs());
     let mut x_end = DIGIT_RIGHT;

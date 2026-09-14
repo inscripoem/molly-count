@@ -16,6 +16,12 @@ pub struct Record {
     /// Day count currently shown on the panel; drives the "skip if unchanged"
     /// optimization. `i64::MIN` means "never shown".
     pub last_shown_days: i64,
+    /// Battery/screen kind currently on the panel (`battery::BattState`
+    /// kind byte: 0 normal, 1 low, 2 charge-warning). Written at offset 24,
+    /// OUTSIDE the checksummed region, so records saved by firmware before
+    /// this field existed remain valid (offset 24 reads 0xFF there and
+    /// decodes as Normal, matching what the panel really showed).
+    pub screen_kind: u8,
 }
 
 impl Record {
@@ -25,6 +31,7 @@ impl Record {
         Self {
             anniv: Date::new(2025, 2, 14),
             last_shown_days: Self::NEVER_SHOWN,
+            screen_kind: 0,
         }
     }
 
@@ -37,6 +44,7 @@ impl Record {
         b[10..18].copy_from_slice(&self.last_shown_days.to_le_bytes());
         let sum = fnv1a(&b[0..20]);
         b[20..24].copy_from_slice(&sum.to_le_bytes());
+        b[24] = self.screen_kind;
         b
     }
 
@@ -59,6 +67,7 @@ impl Record {
             last_shown_days: i64::from_le_bytes([
                 b[10], b[11], b[12], b[13], b[14], b[15], b[16], b[17],
             ]),
+            screen_kind: b[24],
         })
     }
 }
@@ -82,6 +91,7 @@ mod tests {
         let r = Record {
             anniv: Date::new(2025, 2, 14),
             last_shown_days: 577,
+            screen_kind: 0,
         };
         let unpacked = Record::unpack(&r.pack()).unwrap();
         assert_eq!(unpacked, r);
@@ -106,6 +116,35 @@ mod tests {
         let mut b = Record::placeholder().pack();
         b[8] = 13; // invalid month, checksum now stale
         assert!(Record::unpack(&b).is_none());
+    }
+
+    #[test]
+    fn legacy_record_without_flags_still_unpacks() {
+        // bytes written by pre-battery firmware: 0..24 valid, 24.. = 0xFF
+        let mut r = Record {
+            anniv: Date::new(2024, 6, 1),
+            last_shown_days: 835,
+            screen_kind: 0xFF,
+        };
+        let mut b = {
+            r.screen_kind = 0;
+            let mut b = r.pack();
+            b[24] = 0xFF; // emulate the old flash content
+            b
+        };
+        let u = Record::unpack(&b).unwrap();
+        assert_eq!(u.anniv, Date::new(2024, 6, 1));
+        assert_eq!(u.last_shown_days, 835);
+        assert_eq!(u.screen_kind, 0xFF); // caller (battery.rs) maps 0xFF -> Normal
+        b[24] = 1; // low-battery screen shown
+        assert_eq!(Record::unpack(&b).unwrap().screen_kind, 1);
+    }
+
+    #[test]
+    fn flags_roundtrip() {
+        let mut r = Record::placeholder();
+        r.screen_kind = 2;
+        assert_eq!(Record::unpack(&r.pack()).unwrap().screen_kind, 2);
     }
 
     #[test]

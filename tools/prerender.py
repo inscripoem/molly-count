@@ -153,6 +153,78 @@ def jasmine(d, cx, cy, r, petal_fill, petal_outline, center_fill):
         )
 
 
+def battery_icon(d, x, y, w, h):
+    """Small battery outline with a low red bar, top-left anchor (200-scale px).
+    Drawn on a supersampled canvas: all coordinates go through fpx(), stroke
+    widths are given in FINAL pixels and scaled by S here."""
+    black = (0, 0, 0)
+    red = (205, 35, 50)
+    t = max(1.2, w * 0.08) * S  # outline thickness, final px -> supersampled
+    # body
+    d.rounded_rectangle(
+        [fpx(x), fpx(y), fpx(x + w), fpx(y + h)],
+        radius=fpx(2), outline=black, width=int(t),
+    )
+    # terminal nub on the right
+    nw = w * 0.12
+    d.rounded_rectangle(
+        [fpx(x + w), fpx(y + h * 0.3), fpx(x + w + nw), fpx(y + h * 0.7)],
+        radius=fpx(1), fill=black,
+    )
+    # low red bar
+    d.rounded_rectangle(
+        [fpx(x + w * 0.12), fpx(y + h * 0.25), fpx(x + w * 0.38), fpx(y + h * 0.75)],
+        radius=fpx(1), fill=red,
+    )
+
+
+def draw_charge_screen():
+    """Full-screen 'please charge' warning, everything static."""
+    img = Image.new("RGB", (W * S, H * S), (255, 255, 255))
+    d = ImageDraw.Draw(img)
+
+    black = (0, 0, 0)
+    red = (205, 35, 50)
+    yellow = (250, 195, 25)
+    white = (255, 255, 255)
+
+    # ---- big empty battery, center-top ----
+    bx, by, bw, bh = 58, 34, 84, 46
+    t = 3
+    d.rounded_rectangle(
+        [fpx(bx), fpx(by), fpx(bx + bw), fpx(by + bh)],
+        radius=fpx(4), outline=black, width=t,
+    )
+    d.rounded_rectangle(
+        [fpx(bx + bw), fpx(by + bh * 0.28), fpx(bx + bw + 9), fpx(by + bh * 0.72)],
+        radius=fpx(2), fill=black,
+    )
+    # red exclamation inside
+    d.rounded_rectangle(
+        [fpx(bx + bw / 2 - 5), fpx(by + 7), fpx(bx + bw / 2 + 5), fpx(by + bh - 14)],
+        radius=fpx(2), fill=red,
+    )
+    d.ellipse(
+        [fpx(bx + bw / 2 - 5), fpx(by + bh - 12), fpx(bx + bw / 2 + 5), fpx(by + bh - 2)],
+        fill=red,
+    )
+
+    # ---- 请充电 ----
+    f_big = load_font(30 * S)
+    d.text((fpx(100), fpx(112)), "请充电", font=f_big, fill=black, anchor="mm")
+
+    # ---- small reassurance line ----
+    f_small = load_font(13 * S)
+    d.text((fpx(100), fpx(140)), "接上 USB 稍作休息", font=f_small, fill=red, anchor="mm")
+
+    # ---- motif: heart + jasmine ----
+    heart(d, fpx(38), fpx(168), fpx(8), red, black)
+    jasmine(d, fpx(162), fpx(167), fpx(15), white, black, yellow)
+
+    img = img.resize((W, H), Image.LANCZOS)
+    return img
+
+
 def quantize(img):
     """200x200 RGB -> index array (0..3).
 
@@ -213,7 +285,7 @@ def digit_masks():
     return masks
 
 
-def compose_preview(idx_bg, day=835):
+def compose_preview(idx_bg, day=835, dates=True):
     """Composite background + red digits + runtime-style date strings -> PNG."""
     rgb = np.zeros((H, W, 3), dtype=np.uint8)
     for code, (r, g, b) in enumerate(PALETTE):
@@ -221,22 +293,24 @@ def compose_preview(idx_bg, day=835):
     img = Image.fromarray(rgb)
 
     # digits (draw masks in red), right-aligned
-    s = str(day)
-    x = DIGIT_RIGHT - DIGIT_BOX_W
-    for ch in reversed(s):
-        m = digit_masks()[int(ch)]
-        row_bytes = (DIGIT_BOX_W + 7) // 8
-        for yy in range(DIGIT_BOX_H):
-            for xx in range(DIGIT_BOX_W):
-                if m[yy * row_bytes + xx // 8] & (0x80 >> (xx % 8)):
-                    img.putpixel((x + xx, DIGIT_Y + yy), red)
-        x -= DIGIT_ADVANCE
+    if day is not None:
+        s = str(day)
+        x = DIGIT_RIGHT - DIGIT_BOX_W
+        for ch in reversed(s):
+            m = digit_masks()[int(ch)]
+            row_bytes = (DIGIT_BOX_W + 7) // 8
+            for yy in range(DIGIT_BOX_H):
+                for xx in range(DIGIT_BOX_W):
+                    if m[yy * row_bytes + xx // 8] & (0x80 >> (xx % 8)):
+                        img.putpixel((x + xx, DIGIT_Y + yy), red)
+            x -= DIGIT_ADVANCE
 
     # runtime-style bottom row (FONT_6X12 in firmware): 6x12 ascii
-    f = load_font(11)
-    d = ImageDraw.Draw(img)
-    d.text((8, 186), "S.2024.06.01", font=f, fill=black, anchor="lm")
-    d.text((136, 186), "2026.09.14", font=f, fill=black, anchor="lm")
+    if dates:
+        f = load_font(11)
+        d = ImageDraw.Draw(img)
+        d.text((8, 186), "S.2024.06.01", font=f, fill=black, anchor="lm")
+        d.text((136, 186), "2026.09.14", font=f, fill=black, anchor="lm")
 
     return img.resize((W * 3, H * 3), Image.NEAREST)
 
@@ -247,18 +321,54 @@ red = (205, 35, 50)
 
 def main():
     OUT.mkdir(exist_ok=True)
-    canvas = draw_canvas()
-    idx = quantize(canvas)
+
+    # ---- normal day screen ----
+    idx = quantize(draw_canvas())
     (OUT / "background.2bpp").write_bytes(pack_2bpp(idx))
+    assert idx.max() <= 3
+
+    # ---- low-battery screen: same layout + corner warning icon ----
+    img_low = draw_canvas_with_icon()
+    idx_low = quantize(img_low)
+    (OUT / "background_low.2bpp").write_bytes(pack_2bpp(idx_low))
+
+    # ---- charge warning screen ----
+    idx_chg = quantize(draw_charge_screen())
+    (OUT / "screen_charge.2bpp").write_bytes(pack_2bpp(idx_chg))
 
     masks = digit_masks()
     (OUT / "digits.1bpp").write_bytes(b"".join(masks))
 
-    compose_preview(idx, day=835).save(OUT / "preview.png")
+    compose_preview(idx, day=835).save(OUT / "preview_normal.png")
+    compose_preview(idx_low, day=836).save(OUT / "preview_low.png")
+    compose_preview(idx_chg, day=None, dates=False).save(OUT / "preview_charge.png")
 
-    # sanity: index values only 0..3
-    assert idx.max() <= 3
-    print("assets written:", *(p.name for p in OUT.iterdir()))
+    print("assets written:", *(p.name for p in sorted(OUT.iterdir())))
+
+
+def draw_canvas_with_icon():
+    """Normal canvas plus the low-battery icon, drawn pre-downscale for clean strokes."""
+    img = Image.new("RGB", (W * S, H * S), (255, 255, 255))
+    d = ImageDraw.Draw(img)
+    # replicate normal canvas draws, then add icon at supersample coords
+    base = draw_canvas_raw(d)
+    battery_icon(d, 168, 14, 22, 12)
+    return img.resize((W, H), Image.LANCZOS)
+
+
+def draw_canvas_raw(d):
+    """Draw normal-canvas content onto an existing supersampled image."""
+    black = (0, 0, 0)
+    red = (205, 35, 50)
+
+    f_header = load_font(20 * S)
+    d.text((fpx(100), fpx(22)), "我们在一起", font=f_header, fill=black, anchor="mm")
+    heart(d, fpx(18), fpx(21), fpx(9), red, black)
+    f_frame = load_font(26 * S)
+    d.text((fpx(17), fpx(94)), "第", font=f_frame, fill=black, anchor="mm")
+    d.text((fpx(164), fpx(94)), "天", font=f_frame, fill=black, anchor="mm")
+    jasmine(d, fpx(160), fpx(151), fpx(26), (255, 255, 255), black, (250, 195, 25))
+    heart(d, fpx(119), fpx(186), fpx(7), red, black)
 
 
 if __name__ == "__main__":
