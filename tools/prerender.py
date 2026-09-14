@@ -41,7 +41,7 @@ PALETTE = [
 DIGIT_BOX_W, DIGIT_BOX_H = 52, 88
 DIGIT_ROW_BYTES = (DIGIT_BOX_W + 7) // 8
 DIGIT_ADVANCE = 52
-DIGIT_Y = 61           # mask top; ink bottom lands on the red rule (no gap)
+DIGIT_Y = 53           # mask top; ink bottom lands on the red rule (no gap)
 DIGIT_BASELINE_IN_BOX = 76
 DIGIT_RIGHT = 164      # right edge of the last digit box
 
@@ -93,9 +93,9 @@ def chip(d, x, y, color):
 
 
 def rules(d, ink):
-    d.rectangle(fpx(8, 136, 192, 140), fill=RED)    # 4px
-    d.rectangle(fpx(8, 142, 192, 145), fill=YELLOW) # 3px
-    d.rectangle(fpx(8, 147, 192, 150), fill=ink)    # 3px, white on charge
+    d.rectangle(fpx(8, 128, 192, 135), fill=RED)    # 8px
+    d.rectangle(fpx(8, 137, 192, 143), fill=YELLOW) # 7px
+    d.rectangle(fpx(8, 145, 192, 152), fill=ink)    # 8px, white on charge
 
 
 def footer(img, d, ink, day_code=False):
@@ -125,8 +125,8 @@ def draw_main(mode):
         masked_text(img, 100, 112, "接上 USB 稍作休息", 13, 500, YELLOW, anchor="mm")
     else:
         # hero area stays white: digits are runtime-blitted from masks
-        d.rounded_rectangle(fpx(158, 98, 184, 122), radius=1 * S, fill=RED)
-        masked_text(img, 171, 110, "天", 16, 700, WHITE, anchor="mm")
+        d.rounded_rectangle(fpx(158, 90, 184, 114), radius=1 * S, fill=RED)
+        masked_text(img, 171, 102, "天", 16, 700, WHITE, anchor="mm")
 
     rules(d, ink)
 

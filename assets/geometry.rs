@@ -3,5 +3,5 @@ pub const DIGIT_BOX_W: usize = 52;
 pub const DIGIT_BOX_H: usize = 88;
 pub const DIGIT_ROW_BYTES: usize = 7;
 pub const DIGIT_ADVANCE: usize = 52;
-pub const DIGIT_Y: usize = 61;
+pub const DIGIT_Y: usize = 53;
 pub const DIGIT_RIGHT: usize = 164;
