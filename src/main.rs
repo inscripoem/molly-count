@@ -274,10 +274,11 @@ fn main() -> ! {
     let _ = audio_pwr.set_high();
     let _ = vbat_path.set_high();
 
-    // ---- deep sleep until 08:00 (or SLEEP override for testing) ----
+    // ---- deep sleep until WAKE_HOUR (or SLEEP override for testing) ----
+    const WAKE_HOUR: u8 = 6;
     let now2 = rtc.datetime().unwrap();
-    let secs = sleep_override.unwrap_or_else(|| seconds_until_next(8, now2));
-    esp_println::println!("deep sleep for {} s (wake at 08:00)", secs);
+    let secs = sleep_override.unwrap_or_else(|| seconds_until_next(WAKE_HOUR, now2));
+    esp_println::println!("deep sleep for {} s (wake at {:02}:00)", secs, WAKE_HOUR);
     console.print("SLEEPING\r\n");
 
     let mut lp = LowPower::new(p.LPWR);
