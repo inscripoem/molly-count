@@ -132,15 +132,13 @@ def draw_main(mode):
 
     if mode == "charge":
         chip(d, 8, 171, YELLOW)
-        masked_text(img, 21, 171, "LOW_POWER", 10, 600, ink)
-        masked_text(img, 192, 171, "USB_REQUIRED", 9, 500, ink, anchor="rm")
+        masked_text(img, 21, 171, "LOW POWER", 10, 600, ink)
+        masked_text(img, 192, 171, "USB REQUIRED", 9, 500, ink, anchor="rm")
     else:
         chip(d, 8, 171, BLACK)
         # SINCE_ text is runtime (firmware), row stays empty
 
     footer(img, d, ink)
-    if mode == "charge":
-        masked_text(img, 8, 176, "PLUG_IN_USB // RESUME", 9, 500, ink)
 
     return img.resize((W, H), Image.LANCZOS)
 
