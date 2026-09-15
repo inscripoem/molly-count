@@ -1,3 +1,4 @@
+//! molly-count firmware — shared, host-testable logic.
 #![no_std]
 
 pub mod assets;

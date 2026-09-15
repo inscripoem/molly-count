@@ -1,3 +1,6 @@
+//! molly-count: a four-color e-paper love-day counter.
+//! Boot flow: console window -> RTC -> battery state -> conditional
+//! full refresh -> deep sleep until 06:00.
 #![no_std]
 #![no_main]
 
