@@ -33,16 +33,19 @@ impl Pcf85063 {
     }
 
     /// Read the 7 datetime registers and decode (24-hour mode).
-    pub fn datetime(&mut self) -> Result<DateTime, BusError> {
+    /// Also reports the OSC_STOP flag (seconds bit7: set when the oscillator
+    /// stalled at some point since the flag was last cleared by a write).
+    pub fn datetime(&mut self) -> Result<(DateTime, bool), BusError> {
         let mut buf = [0u8; 7];
         self.i2c.write_read(ADDR, &[SEC_REG], &mut buf)?;
+        let osc_stopped = buf[0] & 0x80 != 0;
         let second = bcd2dec(buf[0] & 0x7F);
         let minute = bcd2dec(buf[1] & 0x7F);
         let hour = bcd2dec(buf[2] & 0x3F);
         let day = bcd2dec(buf[3] & 0x3F);
         let month = bcd2dec(buf[5] & 0x1F);
         let year = 2000 + bcd2dec(buf[6]) as i32;
-        Ok(DateTime::new(Date::new(year, month, day), hour, minute, second))
+        Ok((DateTime::new(Date::new(year, month, day), hour, minute, second), osc_stopped))
     }
 
     /// Write datetime: stop the clock, load registers, restart.

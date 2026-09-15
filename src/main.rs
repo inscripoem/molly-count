@@ -190,18 +190,19 @@ fn main() -> ! {
                 _ => console.print("ERR usage: BATTTEST LOW|CRIT\r\n"),
             },
             Some("GET") => {
-                if let Ok(now) = rtc.datetime() {
-                    let mut s = heapless::String::<128>::new();
+                if let Ok((now, osc_stopped)) = rtc.datetime() {
+                    let mut s = heapless::String::<160>::new();
                     use core::fmt::Write as _;
                     let _ = write!(
                         s,
-                        "ANNIV {:04}-{:02}-{:02} LAST {} VBAT {}mV KIND {}\r\n",
+                        "ANNIV {:04}-{:02}-{:02} LAST {} VBAT {}mV KIND {} RTC_STOPPED {}\r\n",
                         record.anniv.y,
                         record.anniv.m,
                         record.anniv.d,
                         record.last_shown_days,
                         vbat_mv,
-                        record.screen_kind
+                        record.screen_kind,
+                        osc_stopped
                     );
                     console.print(s.as_str());
                 }
@@ -215,7 +216,7 @@ fn main() -> ! {
     }
 
     // ---- day + battery state ----
-    let now = rtc.datetime().unwrap();
+    let (now, _osc_stopped) = rtc.datetime().unwrap();
     let days = record.anniv.day_number(now.date); // anniversary = day 1
     let prev_state = BattState::from_kind_byte(record.screen_kind);
     let state = batttest.unwrap_or_else(|| battery::next_state(prev_state, vbat_mv));
@@ -285,7 +286,7 @@ fn main() -> ! {
 
     // ---- deep sleep until WAKE_HOUR (or SLEEP override for testing) ----
     const WAKE_HOUR: u8 = 6;
-    let now2 = rtc.datetime().unwrap();
+    let (now2, _) = rtc.datetime().unwrap();
     let secs = sleep_override.unwrap_or_else(|| seconds_until_next(WAKE_HOUR, now2));
     esp_println::println!("deep sleep for {} s (wake at {:02}:00)", secs, WAKE_HOUR);
     console.print("SLEEPING\r\n");
