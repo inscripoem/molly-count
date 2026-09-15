@@ -88,18 +88,11 @@ fn draw_screen(fb: &mut Framebuffer, state: BattState, anniv: &Date, days: i64, 
 fn main() -> ! {
     let p = esp_hal::init(esp_hal::Config::default());
 
-    // green LED (GPIO3, low-active): one visible blink at every boot —
-    // proof of life for a device that otherwise looks identical asleep,
-    // awake, or powered off
+    // green LED (GPIO3, low-active): solid ON for the whole awake phase —
+    // the only observable difference between "sleeping", "awake" and
+    // "powered off" on a sealed e-paper device
     let mut led = Output::new(p.GPIO3, Level::High, OutputConfig::default());
     led.set_low();
-    {
-        let start = Instant::now();
-        while start.elapsed() < Duration::from_millis(300) {
-            core::hint::spin_loop();
-        }
-    }
-    led.set_high();
 
     // PWR button (GPIO18, pressed = high): arm as the deep-sleep wake source,
     // so a press wakes the device for an on-demand status check
@@ -290,14 +283,8 @@ fn main() -> ! {
         console.print("UNCHANGED\r\n");
     }
 
-    // two quick blinks = update cycle finished, about to sleep
-    for _ in 0..4 {
-        led.toggle();
-        let start = Instant::now();
-        while start.elapsed() < Duration::from_millis(150) {
-            core::hint::spin_loop();
-        }
-    }
+    // awake phase over: LED off = sleeping
+    led.set_high();
 
     // ---- rails before sleep: EPD off (already), audio off, VBAT path on ----
     let _ = audio_pwr.set_high();
