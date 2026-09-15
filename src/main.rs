@@ -94,12 +94,24 @@ fn main() -> ! {
     let mut led = Output::new(p.GPIO3, Level::High, OutputConfig::default());
     led.set_low();
 
-    // PWR button (GPIO18, pressed = high): arm as the deep-sleep wake source,
-    // so a press wakes the device for an on-demand status check
-    let mut pwr_btn = Input::new(p.GPIO18, InputConfig::default().with_pull(Pull::Down));
-    pwr_btn
+    // BOOT button (GPIO0, pressed = low, external pull-up on board): the
+    // vendor's own deep-sleep wake pin (ext_wakeup_pin_1). Armed low-level:
+    // a press wakes the device for an on-demand status check. The PWR key
+    // (GPIO18) belongs to the power-latch network and is NOT usable for this.
+    let mut wake_btn = Input::new(p.GPIO0, InputConfig::default().with_pull(Pull::Up));
+    wake_btn
         .apply_wakeup_config(&WakeupConfig::default().with_low_power_path(true))
         .unwrap();
+
+    // explicitly disarm any stale wake config left on GPIO18 (BAT_KEY) by an
+    // earlier firmware: RTC wake registers survive soft resets, and a stale
+    // high-level arm on this pin caused an instant-wake boot loop
+    {
+        let mut stale = Input::new(p.GPIO18, InputConfig::default());
+        stale
+            .apply_wakeup_config(&WakeupConfig::default())
+            .unwrap();
+    }
 
     let spi = Spi::new(
         p.SPI2,
