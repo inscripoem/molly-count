@@ -11,7 +11,7 @@ use embedded_graphics::prelude::Drawable as _;
 use embedded_graphics::text::Text;
 use esp_backtrace as _;
 use esp_hal::analog::adc::{Adc, AdcCalLine, AdcConfig, AdcPin, Attenuation};
-use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull};
+use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull, WakeupConfig};
 use esp_hal::i2c::master::{Config as I2cConfig, I2c};
 use esp_hal::rtc_cntl::sleep::{LowPower, RtcSleepConfig};
 use esp_hal::spi::master::{Config as SpiConfig, Spi};
@@ -87,6 +87,26 @@ fn draw_screen(fb: &mut Framebuffer, state: BattState, anniv: &Date, days: i64, 
 #[esp_hal::main]
 fn main() -> ! {
     let p = esp_hal::init(esp_hal::Config::default());
+
+    // green LED (GPIO3, low-active): one visible blink at every boot —
+    // proof of life for a device that otherwise looks identical asleep,
+    // awake, or powered off
+    let mut led = Output::new(p.GPIO3, Level::High, OutputConfig::default());
+    led.set_low();
+    {
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_millis(300) {
+            core::hint::spin_loop();
+        }
+    }
+    led.set_high();
+
+    // PWR button (GPIO18, pressed = high): arm as the deep-sleep wake source,
+    // so a press wakes the device for an on-demand status check
+    let mut pwr_btn = Input::new(p.GPIO18, InputConfig::default().with_pull(Pull::Down));
+    pwr_btn
+        .apply_wakeup_config(&WakeupConfig::default().with_low_power_path(true))
+        .unwrap();
 
     let spi = Spi::new(
         p.SPI2,
@@ -271,7 +291,6 @@ fn main() -> ! {
     }
 
     // two quick blinks = update cycle finished, about to sleep
-    let mut led = Output::new(p.GPIO3, Level::High, OutputConfig::default());
     for _ in 0..4 {
         led.toggle();
         let start = Instant::now();
