@@ -11,8 +11,9 @@ use embedded_graphics::prelude::Drawable as _;
 use embedded_graphics::text::Text;
 use esp_backtrace as _;
 use esp_hal::analog::adc::{Adc, AdcCalLine, AdcConfig, AdcPin, Attenuation};
-use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig, Pull, WakeupConfig};
+use esp_hal::gpio::{Event, Input, InputConfig, Level, Output, OutputConfig, Pull, WakeupConfig};
 use esp_hal::i2c::master::{Config as I2cConfig, I2c};
+use esp_hal::rtc_cntl::{wakeup_cause, WakeupSource};
 use esp_hal::rtc_cntl::sleep::{LowPower, RtcSleepConfig};
 use esp_hal::spi::master::{Config as SpiConfig, Spi};
 use esp_hal::time::{Duration, Instant, Rate};
@@ -94,14 +95,29 @@ fn main() -> ! {
     let mut led = Output::new(p.GPIO3, Level::High, OutputConfig::default());
     led.set_low();
 
-    // PWR button (GPIO18): the official S3 high-level wake pin pattern
-    // (esp-hal example: GPIO17/18 = wake-low/wake-high; ours pressed = high,
-    // internal Pull::Down holds it low at idle). A press wakes the device
-    // from deep sleep for an on-demand status check.
+    // PWR button (GPIO18): idle LOW (board pull-down), pressed = HIGH.
+    // The official S3 high-level wake pin pattern: Pull::Down holds the pad
+    // at the non-waking level, listen(Event::HighLevel) arms the EXT1 level
+    // (the interrupt trigger IS the wake condition).
     let mut pwr_btn = Input::new(p.GPIO18, InputConfig::default().with_pull(Pull::Down));
     pwr_btn
         .apply_wakeup_config(&WakeupConfig::default().with_low_power_path(true))
         .unwrap();
+    pwr_btn.listen(Event::HighLevel);
+
+    // 60s PWR button sampler (diagnostic): log level transitions
+    esp_println::println!("btn sampler: press BOOT now (60s)");
+    {
+        let start = Instant::now();
+        let mut last_hi = pwr_btn.is_high();
+        while start.elapsed() < Duration::from_secs(60) {
+            let hi = pwr_btn.is_high();
+            if hi != last_hi {
+                esp_println::println!("btn: {}", if hi { "HIGH (released)" } else { "LOW (pressed)" });
+                last_hi = hi;
+            }
+        }
+    }
 
     let spi = Spi::new(
         p.SPI2,
@@ -204,6 +220,10 @@ fn main() -> ! {
                 }
                 _ => console.print("ERR usage: BATTTEST LOW|CRIT\r\n"),
             },
+            Some("BTN") => {
+                let hi = pwr_btn.is_high();
+                console.print(if hi { "GPIO18 HIGH\r\n" } else { "GPIO18 LOW\r\n" });
+            }
             Some("GET") => {
                 if let Ok((now, osc_stopped)) = rtc.datetime() {
                     let mut s = heapless::String::<160>::new();
@@ -232,12 +252,14 @@ fn main() -> ! {
 
     // ---- day + battery state ----
     let (now, _osc_stopped) = rtc.datetime().unwrap();
+    // a button wake always refreshes: the visible flicker is the proof of life
+    let button_wake = wakeup_cause().contains(WakeupSource::Gpio);
     let days = record.anniv.day_number(now.date); // anniversary = day 1
     let prev_state = BattState::from_kind_byte(record.screen_kind);
     let state = batttest.unwrap_or_else(|| battery::next_state(prev_state, vbat_mv));
     let kind = state.kind_byte();
     esp_println::println!(
-        "rtc: {:04}-{:02}-{:02} {:02}:{:02}:{:02}, days: {}, vbat: {}mV, batt: {:?}",
+        "rtc: {:04}-{:02}-{:02} {:02}:{:02}:{:02}, days: {}, vbat: {}mV, batt: {:?}, button_wake: {}",
         now.date.y,
         now.date.m,
         now.date.d,
@@ -246,12 +268,15 @@ fn main() -> ! {
         now.ss,
         days,
         vbat_mv,
-        state
+        state,
+        button_wake
     );
 
     let mut epd = Epd1in54g::new(spi, cs, dc, rst, busy, pwr);
 
     let screen_changed = kind != record.screen_kind;
+    // button wake refreshes only if something changed — the solid LED
+    // during the awake phase is the "alive" signal, not the flicker
     let needs_refresh = match state {
         // charge warning is static; ignore day changes while on it
         BattState::Critical => screen_changed,
