@@ -5,7 +5,7 @@
 //! glue (timing via `esp_hal::time`) and lives in the bin, so host-side
 //! `cargo test --lib` never pulls esp-hal.
 
-use embedded_hal::digital::{InputPin, OutputPin};
+use embedded_hal::digital::{InputPin, OutputPin, StatefulOutputPin};
 use embedded_hal::spi::SpiBus;
 
 use esp_hal::time::{Duration, Instant};
@@ -20,44 +20,34 @@ pub enum Error<S> {
     Timeout,
 }
 
-/// Blocking driver. Owns the SPI bus and all control pins;
+/// Blocking driver. Owns the SPI bus and the control pins;
 /// CS is toggled manually around each phase, matching the C reference.
-pub struct Epd1in54g<SPI, CS, DC, RST, BUSY, PWR> {
+/// The power rail is NOT owned here: the caller drives it (active-low),
+/// matching the vendor layering where DEV_Config owns the rail.
+pub struct Epd1in54g<SPI, CS, DC, RST, BUSY> {
     spi: SPI,
     cs: CS,
     dc: DC,
     rst: RST,
     busy: BUSY,
-    pwr: PWR,
 }
 
-impl<SPI, CS, DC, RST, BUSY, PWR> Epd1in54g<SPI, CS, DC, RST, BUSY, PWR>
+impl<SPI, CS, DC, RST, BUSY> Epd1in54g<SPI, CS, DC, RST, BUSY>
 where
     SPI: SpiBus,
     CS: OutputPin<Error = core::convert::Infallible>,
     DC: OutputPin<Error = core::convert::Infallible>,
     RST: OutputPin<Error = core::convert::Infallible>,
     BUSY: InputPin<Error = core::convert::Infallible>,
-    PWR: OutputPin<Error = core::convert::Infallible>,
 {
-    pub fn new(spi: SPI, cs: CS, dc: DC, rst: RST, busy: BUSY, pwr: PWR) -> Self {
+    pub fn new(spi: SPI, cs: CS, dc: DC, rst: RST, busy: BUSY) -> Self {
         Self {
             spi,
             cs,
             dc,
             rst,
             busy,
-            pwr,
         }
-    }
-
-    /// Panel power rail: GPIO6, active-low (P-channel load switch).
-    pub fn power_on(&mut self) {
-        let _ = self.pwr.set_low();
-    }
-
-    pub fn power_off(&mut self) {
-        let _ = self.pwr.set_high();
     }
 
     fn wait_ms(ms: u64) {
@@ -67,11 +57,21 @@ where
         }
     }
 
-    fn wait_busy_high(&mut self) -> Result<(), Error<SPI::Error>> {
+    fn wait_busy_high(
+        &mut self,
+        led: &mut (impl OutputPin<Error = core::convert::Infallible> + StatefulOutputPin<Error = core::convert::Infallible>),
+    ) -> Result<(), Error<SPI::Error>> {
         // Waveshare ReadBusyH: 100ms settle, then poll every 5ms until HIGH.
+        // While waiting, blink the LED at ~4Hz (toggle every 25th 5ms poll):
+        // the sealed-case "panel is working" signal.
         Self::wait_ms(100);
         let start = Instant::now();
+        let mut polls = 0u32;
         while !self.busy.is_high().ok().unwrap_or(false) {
+            polls += 1;
+            if polls % 25 == 0 {
+                let _ = led.toggle();
+            }
             if start.elapsed() > BUSY_TIMEOUT {
                 return Err(Error::Timeout);
             }
@@ -107,8 +107,12 @@ where
     }
 
     /// Register init sequence, verbatim from `EPD_1IN54G_Init`.
-    pub fn init(&mut self) -> Result<(), Error<SPI::Error>> {
-        self.power_on();
+    /// The caller must switch the power rail on before calling this;
+    /// `led` blinks while the panel reports busy.
+    pub fn init(
+        &mut self,
+        led: &mut (impl OutputPin<Error = core::convert::Infallible> + StatefulOutputPin<Error = core::convert::Infallible>),
+    ) -> Result<(), Error<SPI::Error>> {
         self.reset();
 
         self.cmd(0x4D)?;
@@ -139,12 +143,17 @@ where
         self.data(0x08)?;
 
         self.cmd(0x04)?; // power on
-        self.wait_busy_high()?;
+        self.wait_busy_high(led)?;
         Ok(())
     }
 
     /// Stream the framebuffer (cmd 0x10) and trigger a full refresh (0x12).
-    pub fn display(&mut self, fb: &Framebuffer) -> Result<(), Error<SPI::Error>> {
+    /// `led` blinks during the ~20s refresh wait.
+    pub fn display(
+        &mut self,
+        fb: &Framebuffer,
+        led: &mut (impl OutputPin<Error = core::convert::Infallible> + StatefulOutputPin<Error = core::convert::Infallible>),
+    ) -> Result<(), Error<SPI::Error>> {
         self.cmd(0x10)?;
         let _ = self.dc.set_high();
         let _ = self.cs.set_low();
@@ -155,17 +164,35 @@ where
 
         self.cmd(0x12)?; // DISPLAY_REFRESH
         self.data(0x00)?;
-        self.wait_busy_high()?;
+        self.wait_busy_high(led)?;
         Ok(())
     }
 
     /// Power off + deep sleep the panel (verbatim from `EPD_1IN54G_Sleep`).
-    pub fn sleep(&mut self) -> Result<(), Error<SPI::Error>> {
+    fn sleep(
+        &mut self,
+        led: &mut (impl OutputPin<Error = core::convert::Infallible> + StatefulOutputPin<Error = core::convert::Infallible>),
+    ) -> Result<(), Error<SPI::Error>> {
         self.cmd(0x02)?; // POWER_OFF
         self.data(0x00)?;
-        self.wait_busy_high()?;
+        self.wait_busy_high(led)?;
         self.cmd(0x07)?; // DEEP_SLEEP
         self.data(0xA5)?;
+        Ok(())
+    }
+
+    /// Vendor close sequence from `08_E_paper_test.ino`: panel sleep, then
+    /// the mandatory settle ("DEV_Delay_ms(2000) //important, at least 2s")
+    /// before anything cuts power, then reset low (`DEV_Module_Exit`).
+    /// The caller switches the power rail off afterwards.
+    pub fn shutdown(
+        &mut self,
+        led: &mut (impl OutputPin<Error = core::convert::Infallible> + StatefulOutputPin<Error = core::convert::Infallible>),
+    ) -> Result<(), Error<SPI::Error>> {
+        self.sleep(led)?;
+        let _ = led.set_high(); // panel work done: blink stops before the settle
+        Self::wait_ms(2000);
+        let _ = self.rst.set_low();
         Ok(())
     }
 }

@@ -8,7 +8,7 @@ embedded-graphics = "0.8.2"
 embedded-hal = "1.0"
 esp-backtrace = { optional = true,  version = "0.20.0", features = ["esp32s3", "panic-handler", "println"] }
 esp-bootloader-esp-idf = { optional = true,  version = "0.6.0", features = ["esp32s3"] }
-esp-hal = { optional = true,  version = "1.2.1", features = ["esp32s3", "unstable"] }
+esp-hal = { optional = true,  version = "1.2.2", features = ["esp32s3", "unstable"] }
 esp-println = { optional = true,  version = "0.18.0", features = ["esp32s3", "jtag-serial"], default-features = false }
 esp-storage = { version = "0.10.0", features = ["esp32s3", "embedded-storage"], optional = true }
 heapless = "0.9.3"
@@ -19,6 +19,13 @@ default = ["hw"]
 # are optional: host-side unit tests run with --no-default-features.
 hw = ["dep:esp-hal", "dep:esp-backtrace", "dep:esp-println", "dep:esp-bootloader-esp-idf", "dep:esp-storage"]
 esp-storage = ["dep:esp-storage"]
+
+[patch.crates-io]
+# esp-hal 1.2.2's deep-sleep entry deadlocks on the ESP32-S3: the sleep FSM
+# needs the CPU in WAITI, but wait_for_sleep_result() only spin-polls (IDF
+# executes `waiti 0` in rtc_sleep_start). Local patch adds the waiti; remove
+# when upstream ships the fix. See vendor/esp-hal/ and README 已知坑.
+esp-hal = { path = "vendor/esp-hal" }
 
 [profile.dev]
 opt-level = "s"
