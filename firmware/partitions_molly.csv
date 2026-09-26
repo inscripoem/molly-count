@@ -1,0 +1,18 @@
+# molly-count custom partition table v2 (OTA-capable).
+#
+# 0xC000-0xE000 is deliberately UNCLAIMED: that is where the persistent
+# record lives (sector 0xC000, "MCV1" layout — see src/store.h). The record
+# was written by the legacy Rust firmware and must survive re-flashing AND
+# every OTA update, so no partition may cover it. NEVER run
+# `pio run -t erase` / esptool erase_flash: it would wipe the record
+# (recover via SETANNIV only) and the WiFi credentials (nvs).
+#
+# nvs stays at 0x9000 with the same size as v1 so credentials/config survive
+# the v1 -> v2 migration untouched.
+#
+# Name,    Type, SubType, Offset,   Size,     Flags
+nvs,       data, nvs,     0x9000,   0x3000,
+otadata,   data, ota,     0xE000,   0x2000,
+ota_0,     app,  ota_0,   0x10000,  0x180000,
+ota_1,     app,  ota_1,   0x190000, 0x180000,
+coredump,  data, coredump,0x310000, 0x10000,

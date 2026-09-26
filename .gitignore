@@ -4,3 +4,4 @@ result
 result-*
 assets/*.png
 assets/concept/
+firmware/.pio/
