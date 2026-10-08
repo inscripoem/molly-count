@@ -24,13 +24,10 @@ __pycache__/
 assets/*.2bpp
 assets/*.1bpp
 
-# generated previews: README ships all four (fixed self-consistent sample,
+# generated previews: README ships all of them (fixed self-consistent sample,
 # no real dates); any other PNG is regenerable
 assets/*.png
-!assets/preview_normal.png
-!assets/preview_low.png
-!assets/preview_charge.png
-!assets/preview_setup.png
+!assets/preview_*.png
 assets/concept/
 
 # vendor reference material stays local-only; upstream links in README
