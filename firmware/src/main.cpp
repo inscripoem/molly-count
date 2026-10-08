@@ -150,7 +150,7 @@ static void identify_wake()
 
 // Final exit of every wake cycle: rails off, pad holds on, arm BOOT ext0 +
 // timer, deep sleep (never returns). Vendor wake recipe from
-// reference/vendor_power/power_manager.cc (yunliao-s3).
+// reference/vendor_power/power_manager.cc (xiaozhi-esp32, yunliao-s3 board).
 static void enter_deep_sleep(int64_t secs)
 {
     digitalWrite(EPD_LED_PIN, HIGH);   // LED off = sleeping
