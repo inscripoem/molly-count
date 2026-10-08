@@ -55,10 +55,10 @@ nix develop -c python3 tools/prerender.py
    shellHook 检测到包目录缺 manifest 会自动补写，然后再跑。
 8. `reference/` 是引脚/时序/电源的**事实来源**（`waveshare/` 面板驱动、
    `vendor_power/` 电源轨与厂商深睡写法、`schematics/` 原理图）。
-   与记忆或猜测冲突时以它为准。**该目录已 gitignore 不入库**（2026-10-08，
-   厂商再分发 + 脱敏考虑）：waveshare/ 与 schematics/ 可从微雪 wiki 重新
-   下载（链接见 README「移植溯源」）；vendor_power/ 与 design/ 无公开链接、
-   仅本机留档，换机器前先备份这两个子目录。
+   与记忆或猜测冲突时以它为准。**该目录已 gitignore 不入库，git 历史亦已
+   清除（2026-10-08，厂商再分发 + 脱敏考虑）——克隆/公开仓库里没有它属正常**：
+   waveshare/ 与 schematics/ 可从微雪 wiki 重新下载（链接见 README「移植溯源」）；
+   vendor_power/ 与 design/ 无公开链接、仅原机留档，换机器前先备份这两个子目录。
 
 ## 架构速览
 
