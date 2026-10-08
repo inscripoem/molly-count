@@ -16,9 +16,9 @@ bash tools/flash_watch.sh                          # 挂机烧录（须在 nix d
 bash tools/console_watch.sh "GET" "SLEEP 90"       # 挂机抓控制台：板子一醒就自动发命令
 python3 tools/serial_cmd.py --send GET             # 手动控制台（自动断言 DTR）
 
-# 改设计/资产后（devShell 已带渲染依赖与字体）。preview 示例数据自洽互推
-# （无写死日期，天数固定 122）；MOLLY_ANNIV=Y.M.D 可本机注入真实纪念日，
-# 那样生成的 preview 勿提交：
+# 改设计/资产后（devShell 已带渲染依赖与字体）。preview 是固定自洽示例
+# （SINCE 2024.01.01 起 520 天，与时钟无关）；MOLLY_ANNIV=Y.M.D 可本机注入
+# 真实纪念日，那样生成的 preview 勿提交：
 nix develop -c python3 tools/prerender.py
 ```
 

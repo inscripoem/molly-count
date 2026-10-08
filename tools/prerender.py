@@ -236,21 +236,24 @@ def digit_masks():
 
 
 def sample_texts():
-    """Mutually consistent preview sample: top-left is the render date, the
-    day count is a fixed sample number, SINCE is derived from it — no
-    hardcoded dates anywhere. MOLLY_ANNIV=Y.M.D injects a real anniversary
-    for local previews (never commit those). The digit area holds at most
-    3 boxes at the current geometry, so day must stay <= 999."""
-    top = datetime.date.today()
+    """Fixed, mutually consistent preview sample derived in the natural
+    direction: since-date -> render date -> day count. 2024.01.01 is a
+    fixed placeholder and 520 the sample day count (fits the 3-digit
+    area); the render date derives from those two, so nothing here depends
+    on the system clock. MOLLY_ANNIV=Y.M.D swaps in a real anniversary and
+    computes the real day count against today for local previews (never
+    commit those)."""
     env = os.environ.get("MOLLY_ANNIV")
     if env:
         y, m, d = (int(p) for p in env.replace("-", ".").split("."))
         since = datetime.date(y, m, d)
+        top = datetime.date.today()
         assert since <= top, "MOLLY_ANNIV is in the future"
         day = (top - since).days + 1
     else:
-        day = 122
-        since = top - datetime.timedelta(days=day - 1)
+        since = datetime.date(2024, 1, 1)
+        day = 520
+        top = since + datetime.timedelta(days=day - 1)
     assert 0 < day <= 999, "geometry renders at most 3 digit boxes"
     return f"SINCE {since:%Y.%m.%d}", f"{top:%Y.%m.%d}", day
 
