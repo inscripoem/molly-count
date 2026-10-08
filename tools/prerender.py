@@ -364,6 +364,7 @@ def main():
     compose(idx, day_n, texts=(since_text, top_text)).save(OUT / "preview_normal.png")
     compose(idx_low, day_n, texts=(since_text, top_text)).save(OUT / "preview_low.png")
     compose(idx_chg, None, runtime_texts=False).save(OUT / "preview_charge.png")
+    compose(idx_setup, None, runtime_texts=False).save(OUT / "preview_setup.png")
 
     emit_cpp()
 

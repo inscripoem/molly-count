@@ -96,8 +96,8 @@ nix develop -c python3 tools/prerender.py
 
 ## 其他
 
-- `assets/preview_{normal,low,charge}.png` 三张入库（README 用，固定示例渲染；
-  本机经 MOLLY_ANNIV 出真实日期预览后**勿提交**覆盖版），其余 `assets/*.png`
+- `assets/preview_{normal,low,charge,setup}.png` 四张入库（README 用，固定示例
+  渲染；本机经 MOLLY_ANNIV 出真实日期预览后**勿提交**覆盖版），其余 `assets/*.png`
   不入库（可由管线再生）；`firmware/src/{assets,fonts}.*` 是编译输入，
   必须入库、勿手改；`assets/*.2bpp`、`assets/*.1bpp` 是 prerender 中间产物，
   已 ignore、勿提交。

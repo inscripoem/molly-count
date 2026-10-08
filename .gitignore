@@ -6,6 +6,7 @@ assets/*.png
 !assets/preview_normal.png
 !assets/preview_low.png
 !assets/preview_charge.png
+!assets/preview_setup.png
 assets/concept/
 firmware/.pio/
 # vendor reference material stays local-only; upstream links in README
