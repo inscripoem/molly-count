@@ -8,7 +8,7 @@
 
 ## 硬件
 
-微雪 [ESP32-S3-ePaper-1.54G](https://www.waveshare.com/wiki/ESP32-S3-ePaper-1.54G)（ESP32-S3-PICO-1-N8R8，1.54" 红黄黑白四色墨水屏 200×200，板载 PCF85063 RTC / SHTC3 / ES8311 / 锂电充电）。
+微雪 [ESP32-S3-ePaper-1.54G](https://docs.waveshare.com/ESP32-S3-ePaper-1.54G)（ESP32-S3-PICO-1-N8R8，1.54" 红黄黑白四色墨水屏 200×200，板载 PCF85063 RTC / SHTC3 / ES8311 / 锂电充电）。
 
 | 外设 | 引脚 |
 |---|---|
@@ -93,7 +93,9 @@ nix develop -c python3 tools/prerender.py          # 改设计后重生成资产
 
 预渲染背景 + 运行时叠加文字与数字；几何常量由 `tools/prerender.py` 单一来源生成。
 
-移植溯源（`reference/` 不入库）：面板驱动与原理图来自微雪 wiki 的 Resources 区；
+移植溯源（`reference/` 不入库）：面板驱动与原理图见微雪
+[产品文档](https://docs.waveshare.com/ESP32-S3-ePaper-1.54G)（Resources 区）与
+[官方 demo 仓库](https://github.com/waveshareteam/ESP32-S3-ePaper-1.54G)；
 电源 BSP（yunliao-s3 例程）与设计参考图无公开链接。
 
 ## 已知坑
