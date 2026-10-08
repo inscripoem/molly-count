@@ -28,7 +28,8 @@ def find_eg_crate() -> Path:
         "~/.cargo/registry/src/*/embedded-graphics-0.8.2")))
     if not hits:
         sys.exit("embedded-graphics-0.8.2 not found in ~/.cargo/registry — "
-                 "build the legacy Rust firmware once to populate the cache")
+                 "fetch it once, e.g.: cargo new /tmp/eg && cd /tmp/eg && "
+                 "cargo add embedded-graphics@0.8.2 && cargo fetch")
     return Path(hits[0])
 
 

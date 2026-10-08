@@ -12,7 +12,7 @@
     {
       devShells.${system}.default = pkgs.mkShell {
         packages = with pkgs; [
-          gcc # host linker: cargo build scripts & host unit tests
+          gcc # host linker: host unit tests (tools/run_host_tests.sh)
           pkg-config
           git
           platformio # firmware/ (Arduino) build + flash

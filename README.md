@@ -4,9 +4,10 @@
 
 ![preview](assets/preview_normal.png)
 
-固件为 **PlatformIO + Arduino**（2026-09 从 Rust/esp-hal 迁移而来，Rust 版保留在 git
-历史中作为行为规格与回退路径）。硬件管线照抄厂商例程（`reference/waveshare/`、
-`reference/vendor_power/`），应用层逻辑 1:1 移植自 Rust 版，宿主单测同步移植。
+固件为 **PlatformIO + Arduino**（2026-09 自早期的 Rust/esp-hal 实现迁移而来；
+Rust 树已移出工作区、整存于 git 历史，需要时 checkout 即可整体恢复）。硬件管线
+照抄厂商例程（本地 `reference/`，来源见下文），应用层逻辑 1:1 移植自 Rust 版，
+宿主单测同步移植。
 
 ## 硬件
 
@@ -57,10 +58,11 @@ nix develop -c bash tools/run_host_tests.sh
 改设计/资产后重跑 `tools/prerender.py`（devShell 已带字体与渲染依赖：
 `nix develop -c python3 tools/prerender.py`；非 nix 机器用
 `MOLLY_FONT=<Noto Sans CJK 路径>` 指定字体），
-它会同时生成 Rust 侧（`assets/*.2bpp`、`assets/geometry.rs`）与固件侧
-（`firmware/src/assets.h/.cpp`）的编译输入。运行时文字字形由
+它生成固件编译输入 `firmware/src/assets.h/.cpp`（`assets/` 下的 `.2bpp` 是
+它吃的中间产物，已 ignore）。运行时文字字形由
 `tools/font_extract.py` 从 embedded-graphics 0.8.2 的字体数据提取为
-`firmware/src/fonts.h/.cpp`（像素级一致），字体不变无需重跑。preview 图（含
+`firmware/src/fonts.h/.cpp`（像素级一致；字体数据取自 `~/.cargo/registry`
+的 crate 缓存，与已移除的仓库内 Rust 树无关），字体不变无需重跑。preview 图（含
 上方头图）是固定自洽的示例三元组，按自然方向推导：`SINCE 2024.01.01`（占位）
 起算 520 天 → 渲染日 2025.06.03，与系统时钟无关。本机想出真实预览：加
 `MOLLY_ANNIV=<Y.M.D>` 重跑（按当天日期算真实天数），此时不要提交被覆盖的
@@ -132,6 +134,12 @@ nix develop -c python3 tools/serial_cmd.py --send GET      # 自动断言 DTR
 
 ## 设计与资产
 
+屏面三态预览（固定示例数据：`SINCE 2024.01.01` 起算 520 天）：
+
+| 正常 | 低电 | 充电 |
+|---|---|---|
+| ![normal](assets/preview_normal.png) | ![low](assets/preview_low.png) | ![charge](assets/preview_charge.png) |
+
 屏面为预渲染资产 + 运行时叠加：`tools/prerender.py` 用 Noto Sans CJK 把静态元素
 渲染成 2bpp 背景与数字掩膜，同时生成两侧的编译输入（几何常量是唯一事实来源，
 勿手改）。改版式 = 改 prerender.py → 重跑 → `pio run` → 烧录。
@@ -174,5 +182,5 @@ nix develop -c python3 tools/serial_cmd.py --send GET      # 自动断言 DTR
   `tools/serial_cmd.py` 已内置）。
 - GPIO17 拉低 = 整板断电（电池自锁，高有效），固件只允许写高；GPIO6/42 是
   低有效电源轨，睡前置高并 pad-hold。
-- Rust/esp-hal 时代的深睡 waiti 缺陷与 USB 睡眠准备缺失（`vendor/esp-hal/`
-  补丁）是迁移原因，Arduino/IDF 原生没有这两个问题，**勿把补丁思路搬回来**。
+- 早期 Rust/esp-hal 实现的深睡 waiti 缺陷与 USB 睡眠准备缺失是当年的迁移原因
+  （该实现已入 git 历史），Arduino/IDF 原生没有这两个问题，**勿把补丁思路搬回来**。

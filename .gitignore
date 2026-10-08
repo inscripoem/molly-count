@@ -1,12 +1,17 @@
-/target
 .direnv/
 result
 result-*
 assets/*.png
-# README hero is committed: rendered with the placeholder date (real one via MOLLY_ANNIV)
+# README previews are committed: fixed self-consistent sample (no real dates)
 !assets/preview_normal.png
+!assets/preview_low.png
+!assets/preview_charge.png
 assets/concept/
 firmware/.pio/
 # vendor reference material stays local-only; upstream links in README
 reference/
+# prerender intermediates (consumed by prerender itself; the firmware's
+# compile inputs are firmware/src/assets.*)
+assets/*.2bpp
+assets/*.1bpp
 __pycache__/

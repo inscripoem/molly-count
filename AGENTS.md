@@ -28,9 +28,9 @@ nix develop -c python3 tools/prerender.py
 
 ## 硬不变量（违反 = 已知事故重演）
 
-1. **几何常量单一来源**：`tools/prerender.py` 生成 `assets/geometry.rs`（Rust 侧）
-   和 `firmware/src/assets.h/.cpp`（Arduino 侧）。手改任何一侧的数字坐标 =
-   与资产生成脱 sync（曾致徽章/数字错位 4-14px）。
+1. **几何常量单一来源**：`tools/prerender.py` 生成 `firmware/src/assets.h/.cpp`
+   （唯一编译输入；`assets/*.2bpp` 是它吃的中间产物，已 ignore，勿入库）。
+   手改任何一侧的数字坐标 = 与资产生成脱 sync（曾致徽章/数字错位 4-14px）。
 2. **运行时文字基线语义**：`firmware/src/screen.cpp` 的 `draw_text` 复刻
    embedded-graphics 的 Baseline——glyph top = y − offset，Top=0、
    Middle=(height−1)/2、Alphabetic=font.baseline（6x12→9，9x15B→11）。
@@ -45,7 +45,8 @@ nix develop -c python3 tools/prerender.py
 5. **flash 记录在 0xC000，分区表刻意不认领 0xC000-0xE000**。任何 `erase_flash`
    / `pio run -t erase` 都会抹掉用户数据（纪念日），改分区表前先看
    `firmware/partitions_molly.csv` 头部注释。记录格式（MCV1+FNV1a，
-   `firmware/src/store.*`）与 Rust 版字节级兼容，勿动布局。
+   `firmware/src/store.*`）自首版未变、勿动布局（git 历史里 Rust 固件写的
+   记录也靠它兼容）。
 6. **USB-Serial-JTAG 需要 DTR 断言**才接受主机→设备写入（pyserial：
    `s.dtr = True`；`tools/serial_cmd.py` 已内置）。
 7. **PIO 必须在 `nix develop` 里跑**：flake 的 shellHook 把带 intelhex 的
@@ -69,8 +70,8 @@ nix develop -c python3 tools/prerender.py
   - `src/{DEV_Config,EPD_1in54g}.*` — 厂商例程拷入（唯一改动：电源轨归 main 管
     （D_9PIN=0，厂商 Module_Exit 会把 GPIO6 写低=开轨）；busy 等待加 LED
     快闪 + 60s 超时）。
-  - `src/{civil,battery,store,framebuffer,screen}.*` — 纯逻辑，宿主可测，
-    对应 Rust 版同名模块（git 历史即行为规格书）。
+  - `src/{civil,battery,store,framebuffer,screen}.*` — 纯逻辑，宿主可测
+    （早期 Rust 同名模块在 git 历史，可对照）。
   - `src/assets.*`、`src/fonts.*` — 生成物（prerender.py / font_extract.py），
     入库，勿手改。
   - `src/{pcf85063,console}.*` — Wire/Serial 胶水。
@@ -79,13 +80,13 @@ nix develop -c python3 tools/prerender.py
 - `tools/` — prerender.py、font_extract.py、run_host_tests.sh、serial_cmd.py、
   flash_watch.sh、console_watch.sh、render_screen_host.cpp（主机离屏渲染屏面，
   与固件同一份合成代码，拍不清的小字用它对照）。
-- Rust 版（`src/*.rs`、`Cargo.*`、`vendor/esp-hal/`）= 行为规格 + 回退路径，
-  保留未动；espflash 仍可烧回旧固件（flash 记录两边通用）。
+- 早期 Rust/esp-hal 实现已移出工作区（2026-10-08）：整树在 git 历史，
+  checkout 即可恢复；flash 记录格式未变，历史固件写的记录仍兼容。
 - 日期永远读 PCF85063；天数 = 纪念日起算当天记第 1 天（`date_day_number`）。
 
 ## 验证流程（改屏面内容后）
 
-1. `python3 tools/prerender.py` 重新生成两侧资产
+1. `python3 tools/prerender.py` 重新生成固件资产
 2. `pio run -d firmware` + `run_host_tests.sh` 全绿
 3. 烧录（flash_watch 挂机，或按住 BOOT 插 USB）
 4. 按一次 BOOT 唤醒即可看到最新屏面（固件每次唤醒都强制全刷）
@@ -95,10 +96,11 @@ nix develop -c python3 tools/prerender.py
 
 ## 其他
 
-- `assets/*.png` 不入库（可由管线再生），唯一例外 `preview_normal.png`
-  （README 头图，用占位日期渲染；本机经 MOLLY_ANNIV 出真实日期预览后**勿提交**
-  覆盖版）；`*.2bpp`/`*.1bpp`/`geometry.rs`/`firmware/src/{assets,fonts}.*`
-  是编译输入，必须入库。
+- `assets/preview_{normal,low,charge}.png` 三张入库（README 用，固定示例渲染；
+  本机经 MOLLY_ANNIV 出真实日期预览后**勿提交**覆盖版），其余 `assets/*.png`
+  不入库（可由管线再生）；`firmware/src/{assets,fonts}.*` 是编译输入，
+  必须入库、勿手改；`assets/*.2bpp`、`assets/*.1bpp` 是 prerender 中间产物，
+  已 ignore、勿提交。
 - 设备 USB+电池同时断电会丢 RTC 时间，重上电后需 `SETDATE` 重设。
 - 用户判定标准：截图/照片必须放大到具体区域确认，模糊或斜拍不能作为"已验证"。
 - 唤醒枚举（IDF 4.4 / S3）：GPIO=1、EXT0=2、EXT1=3、TIMER=4——常见文档的
