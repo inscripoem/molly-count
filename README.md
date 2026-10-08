@@ -97,12 +97,3 @@ nix develop -c python3 tools/prerender.py          # 改设计后重生成资产
 [产品文档](https://docs.waveshare.com/ESP32-S3-ePaper-1.54G)（Resources 区）与
 [官方 demo 仓库](https://github.com/waveshareteam/ESP32-S3-ePaper-1.54G)；
 电源 BSP（yunliao-s3 例程）与设计参考图无公开链接。
-
-## 已知坑
-
-- NixOS：PIO 必须在 `nix develop` 里跑（esptool 需要 intelhex，shellHook 已注入
-  PYTHONPATH）；首次 `pio run` 若报 `MissingPackageManifestError`，重进一次
-  `nix develop` 即自动修复。
-- IDF 4.4 上 ext0+ext1 并存静默失效，双键唤醒需 Arduino core 3.x / IDF 5.x。
-- S3 唤醒枚举与常见文档不同：GPIO=1、EXT0=2、EXT1=3、TIMER=4。
-- GPIO17 拉低 = 整板断电，固件只允许写高；GPIO6/42 为低有效电源轨，睡前置高。
