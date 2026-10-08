@@ -1,18 +1,37 @@
-.direnv/
+# nix (gitignore.io/templates/nix + direnv)
 result
 result-*
+.direnv/
+
+# python — repo carries script-only python (gitignore.io/templates/python, subset)
+__pycache__/
+*.py[cod]
+
+# PlatformIO (gitignore.io/templates/platformio)
+.pio/
+.pioenvs/
+.piolibdeps/
+.clang_complete
+.gcc-flags.json
+
+# C/C++ host build artifacts (gitignore.io/templates/c++, subset)
+*.o
+*.d
+*.out
+
+# prerender intermediates (consumed by prerender itself; the firmware's
+# compile inputs are firmware/src/assets.*)
+assets/*.2bpp
+assets/*.1bpp
+
+# generated previews: README ships all four (fixed self-consistent sample,
+# no real dates); any other PNG is regenerable
 assets/*.png
-# README previews are committed: fixed self-consistent sample (no real dates)
 !assets/preview_normal.png
 !assets/preview_low.png
 !assets/preview_charge.png
 !assets/preview_setup.png
 assets/concept/
-firmware/.pio/
+
 # vendor reference material stays local-only; upstream links in README
 reference/
-# prerender intermediates (consumed by prerender itself; the firmware's
-# compile inputs are firmware/src/assets.*)
-assets/*.2bpp
-assets/*.1bpp
-__pycache__/

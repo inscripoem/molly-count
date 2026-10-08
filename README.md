@@ -91,9 +91,10 @@ nix develop -c python3 tools/prerender.py          # 修改设计后重新生成
 
 ## 设计与资产
 
-| 正常 | 低电量 | 充电 | 配网 |
-|---|---|---|---|
-| ![normal](assets/preview_normal.png) | ![low](assets/preview_low.png) | ![charge](assets/preview_charge.png) | ![setup](assets/preview_setup.png) |
+| 正常 | 低电量 |
+|:---:|:---:|
+| ![正常](assets/preview_normal.png) | ![低电量](assets/preview_low.png) |
+| ![充电](assets/preview_charge.png) | ![配网](assets/preview_setup.png) |
 
 预渲染背景叠加运行时文字与数字；几何常量由 `tools/prerender.py` 单一来源生成。
 
