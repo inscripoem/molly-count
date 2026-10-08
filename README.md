@@ -61,9 +61,10 @@ nix develop -c bash tools/run_host_tests.sh
 （`firmware/src/assets.h/.cpp`）的编译输入。运行时文字字形由
 `tools/font_extract.py` 从 embedded-graphics 0.8.2 的字体数据提取为
 `firmware/src/fonts.h/.cpp`（像素级一致），字体不变无需重跑。preview 图（含
-上方头图）里的纪念日读环境变量 `MOLLY_ANNIV`，缺省用占位日期 2024.01.01
-（真实日期不进仓库）；本机想看真实预览就加 `MOLLY_ANNIV=<真实日期>` 前缀
-重跑，此时不要提交被覆盖的 preview 图。
+上方头图）的示例数据互相推导、永远自洽：左上是渲染当天、天数固定 122、SINCE
+由天数反推——仓库不含任何真实或写死的日期。本机想出真实预览：加
+`MOLLY_ANNIV=<Y.M.D>` 重跑（天数按真实纪念日计算），此时不要提交被覆盖的
+preview 图。数字区按版式最多 3 位（天数 ≥1000 会被 assert 拦下，届时需扩展设计）。
 
 ## 串口控制台
 

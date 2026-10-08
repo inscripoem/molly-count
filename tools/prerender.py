@@ -14,6 +14,7 @@ Layout (200x200), top to bottom:
 All saturated (red/yellow) and on-black texts are binary-rendered
 (masked, no anti-aliasing) so quantization never speckles them.
 """
+import datetime
 import os
 from pathlib import Path
 
@@ -234,7 +235,27 @@ def digit_masks():
     return masks
 
 
-def compose(idx_bg, day, runtime_texts=True):
+def sample_texts():
+    """Mutually consistent preview sample: top-left is the render date, the
+    day count is a fixed sample number, SINCE is derived from it — no
+    hardcoded dates anywhere. MOLLY_ANNIV=Y.M.D injects a real anniversary
+    for local previews (never commit those). The digit area holds at most
+    3 boxes at the current geometry, so day must stay <= 999."""
+    top = datetime.date.today()
+    env = os.environ.get("MOLLY_ANNIV")
+    if env:
+        y, m, d = (int(p) for p in env.replace("-", ".").split("."))
+        since = datetime.date(y, m, d)
+        assert since <= top, "MOLLY_ANNIV is in the future"
+        day = (top - since).days + 1
+    else:
+        day = 122
+        since = top - datetime.timedelta(days=day - 1)
+    assert 0 < day <= 999, "geometry renders at most 3 digit boxes"
+    return f"SINCE {since:%Y.%m.%d}", f"{top:%Y.%m.%d}", day
+
+
+def compose(idx_bg, day, texts=None, runtime_texts=True):
     rgb = np.zeros((H, W, 3), dtype=np.uint8)
     for code, (r, g, b) in enumerate(PALETTE):
         rgb[idx_bg == code] = (r, g, b)
@@ -253,6 +274,9 @@ def compose(idx_bg, day, runtime_texts=True):
             x_end -= DIGIT_ADVANCE
 
     if runtime_texts:
+        assert texts is not None, "runtime_texts=True needs sample_texts() output"
+        since_text, top_text = texts
+
         def rfont(size, weight=700):
             f = ImageFont.truetype(FONT, int(size), index=SC_INDEX)
             try:
@@ -262,11 +286,8 @@ def compose(idx_bg, day, runtime_texts=True):
             return f
         # approximates the firmware's FONT_9X15_BOLD runtime rendering
         d = ImageDraw.Draw(img)
-        d.text((10, 12), "2026.09.14", font=rfont(8, 500), fill=BLACK, anchor="lm")
-        # real anniversary is injected via MOLLY_ANNIV so it never lands in
-        # the repo; committed previews carry the placeholder
-        since = os.environ.get("MOLLY_ANNIV", "2024.01.01")
-        d.text((21, 170), f"SINCE {since}", font=rfont(12, 800), fill=BLACK, anchor="lm")
+        d.text((10, 12), top_text, font=rfont(8, 500), fill=BLACK, anchor="lm")
+        d.text((21, 170), since_text, font=rfont(12, 800), fill=BLACK, anchor="lm")
 
     return img.resize((W * 3, H * 3), Image.NEAREST)
 
@@ -351,8 +372,9 @@ def main():
     )
     (OUT / "geometry.rs").write_text(geo)
 
-    compose(idx, 122).save(OUT / "preview_normal.png")
-    compose(idx_low, 122).save(OUT / "preview_low.png")
+    since_text, top_text, day_n = sample_texts()
+    compose(idx, day_n, texts=(since_text, top_text)).save(OUT / "preview_normal.png")
+    compose(idx_low, day_n, texts=(since_text, top_text)).save(OUT / "preview_low.png")
     compose(idx_chg, None, runtime_texts=False).save(OUT / "preview_charge.png")
 
     emit_cpp()
