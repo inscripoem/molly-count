@@ -14,6 +14,7 @@ Layout (200x200), top to bottom:
 All saturated (red/yellow) and on-black texts are binary-rendered
 (masked, no anti-aliasing) so quantization never speckles them.
 """
+import os
 from pathlib import Path
 
 import numpy as np
@@ -21,7 +22,21 @@ from PIL import Image, ImageDraw, ImageFont
 
 W = H = 200
 S = 4  # supersample factor
-FONT = "/nix/store/dllg6pqphyxipzwihzb6phmjlq4r0w4b-noto-fonts-cjk-sans-2.004/share/fonts/opentype/noto-cjk/NotoSansCJK-VF.otf.ttc"
+def _noto_cjk():
+    env = os.environ.get("MOLLY_FONT")  # non-nix machines: point at Noto Sans CJK
+    if env:
+        return env
+    hits = list(Path("/nix/store").glob(
+        "*-noto-fonts-cjk-sans-*/share/fonts/opentype/noto-cjk/NotoSansCJK-VF.otf.ttc"))
+    if not hits:
+        raise SystemExit("NotoSansCJK-VF.otf.ttc not found in /nix/store — "
+                         "run inside nix-shell -p noto-fonts-cjk-sans")
+    # store paths get GC'd; resolve the newest cached version at runtime
+    return str(max(hits, key=lambda p:
+        p.relative_to("/nix/store").parts[0].split("-noto-fonts-cjk-sans-")[1]))
+
+
+FONT = _noto_cjk()
 SC_INDEX = 2
 
 OUT = Path(__file__).resolve().parent.parent / "assets"
@@ -248,7 +263,10 @@ def compose(idx_bg, day, runtime_texts=True):
         # approximates the firmware's FONT_9X15_BOLD runtime rendering
         d = ImageDraw.Draw(img)
         d.text((10, 12), "2026.09.14", font=rfont(8, 500), fill=BLACK, anchor="lm")
-        d.text((21, 170), "SINCE 2024.01.01", font=rfont(12, 800), fill=BLACK, anchor="lm")
+        # real anniversary is injected via MOLLY_ANNIV so it never lands in
+        # the repo; committed previews carry the placeholder
+        since = os.environ.get("MOLLY_ANNIV", "2024.01.01")
+        d.text((21, 170), f"SINCE {since}", font=rfont(12, 800), fill=BLACK, anchor="lm")
 
     return img.resize((W * 3, H * 3), Image.NEAREST)
 

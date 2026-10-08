@@ -12,13 +12,13 @@ nix develop -c pio run -d firmware -t upload       # 烧录（真睡时连不上
 
 nix develop -c bash tools/run_host_tests.sh        # 宿主单测（g++ 直编 src 里的纯逻辑文件）
 
-bash tools/flash_watch.sh                          # 挂机烧录：端口出现 0.3s 内自动烧+首轮对话
+bash tools/flash_watch.sh                          # 挂机烧录（须在 nix develop 里跑）：端口出现 0.3s 内自动烧+首轮对话
 bash tools/console_watch.sh "GET" "SLEEP 90"       # 挂机抓控制台：板子一醒就自动发命令
 python3 tools/serial_cmd.py --send GET             # 手动控制台（自动断言 DTR）
 
-# 改设计/资产后（两个渲染依赖在同一 shell 里装齐）：
-nix-shell -p noto-fonts-cjk-sans python3Packages.numpy python3Packages.pillow \
-  --run "python3 tools/prerender.py"
+# 改设计/资产后（devShell 已带渲染依赖与字体）。preview 图的纪念日只从
+# MOLLY_ANNIV 环境变量读（缺省占位 2024.01.01），真实日期不进仓库：
+nix develop -c python3 tools/prerender.py
 ```
 
 **监听器纪律**：`console_watch.sh`/`flash_watch.sh` 同一时刻只允许跑一个，启动新
@@ -49,12 +49,15 @@ nix-shell -p noto-fonts-cjk-sans python3Packages.numpy python3Packages.pillow \
    `s.dtr = True`；`tools/serial_cmd.py` 已内置）。
 7. **PIO 必须在 `nix develop` 里跑**：flake 的 shellHook 把带 intelhex 的
    site-packages 注入 PYTHONPATH（esptool 顶层 import 它），且
-   `tool-esptoolpy` 已 pin 到 2.40900.250804（新版包在 nix 下装不上，修复方法
-   见 README 已知坑；`~/.platformio/packages/tool-esptoolpy/package.json` 是
-   手写的，换机器要重做）。
+   `tool-esptoolpy` 已 pin 到 2.40900.250804（新版包在 nix 下装不上）。若首次
+   `pio run` 报 MissingPackageManifestError，**重新进一次 `nix develop`**——
+   shellHook 检测到包目录缺 manifest 会自动补写，然后再跑。
 8. `reference/` 是引脚/时序/电源的**事实来源**（`waveshare/` 面板驱动、
    `vendor_power/` 电源轨与厂商深睡写法、`schematics/` 原理图）。
-   与记忆或猜测冲突时以它为准。
+   与记忆或猜测冲突时以它为准。**该目录已 gitignore 不入库**（2026-10-08，
+   厂商再分发 + 脱敏考虑）：waveshare/ 与 schematics/ 可从微雪 wiki 重新
+   下载（链接见 README「移植溯源」）；vendor_power/ 与 design/ 无公开链接、
+   仅本机留档，换机器前先备份这两个子目录。
 
 ## 架构速览
 
@@ -91,8 +94,10 @@ nix-shell -p noto-fonts-cjk-sans python3Packages.numpy python3Packages.pillow \
 
 ## 其他
 
-- `assets/*.png` 不入库（可由管线再生）；`*.2bpp`/`*.1bpp`/`geometry.rs`/
-  `firmware/src/{assets,fonts}.*` 是编译输入，必须入库。
+- `assets/*.png` 不入库（可由管线再生），唯一例外 `preview_normal.png`
+  （README 头图，用占位日期渲染；本机经 MOLLY_ANNIV 出真实日期预览后**勿提交**
+  覆盖版）；`*.2bpp`/`*.1bpp`/`geometry.rs`/`firmware/src/{assets,fonts}.*`
+  是编译输入，必须入库。
 - 设备 USB+电池同时断电会丢 RTC 时间，重上电后需 `SETDATE` 重设。
 - 用户判定标准：截图/照片必须放大到具体区域确认，模糊或斜拍不能作为"已验证"。
 - 唤醒枚举（IDF 4.4 / S3）：GPIO=1、EXT0=2、EXT1=3、TIMER=4——常见文档的

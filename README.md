@@ -28,7 +28,7 @@
 > 上拉到 3V3 + 按下经 D8 肖特基接 GND**——空闲高、按下低。早期任务书写的
 > "R33 10K 下拉、按下经 D2 接 VBAT=高" 与实板不符，导致按 PWR 在固件眼里
 > 从未存在过（Rust 时代的 "EXT1 唤醒验证" 因此也是误判）。判读硬件时永远
-> 以 `reference/schematics/schematic.pdf` 为准。
+> 以 `reference/schematics/schematic.pdf`（本机留档，不入库）为准。
 
 ## 构建与烧录
 
@@ -54,12 +54,16 @@ bash tools/flash_watch.sh      # 端口出现 0.3s 内自动烧录，随后自�
 nix develop -c bash tools/run_host_tests.sh
 ```
 
-改设计/资产后重跑 `tools/prerender.py`（需
-`nix-shell -p noto-fonts-cjk-sans python3Packages.numpy python3Packages.pillow`），
+改设计/资产后重跑 `tools/prerender.py`（devShell 已带字体与渲染依赖：
+`nix develop -c python3 tools/prerender.py`；非 nix 机器用
+`MOLLY_FONT=<Noto Sans CJK 路径>` 指定字体），
 它会同时生成 Rust 侧（`assets/*.2bpp`、`assets/geometry.rs`）与固件侧
 （`firmware/src/assets.h/.cpp`）的编译输入。运行时文字字形由
 `tools/font_extract.py` 从 embedded-graphics 0.8.2 的字体数据提取为
-`firmware/src/fonts.h/.cpp`（像素级一致），字体不变无需重跑。
+`firmware/src/fonts.h/.cpp`（像素级一致），字体不变无需重跑。preview 图（含
+上方头图）里的纪念日读环境变量 `MOLLY_ANNIV`，缺省用占位日期 2024.01.01
+（真实日期不进仓库）；本机想看真实预览就加 `MOLLY_ANNIV=<真实日期>` 前缀
+重跑，此时不要提交被覆盖的 preview 图。
 
 ## 串口控制台
 
@@ -131,8 +135,13 @@ nix develop -c python3 tools/serial_cmd.py --send GET      # 自动断言 DTR
 渲染成 2bpp 背景与数字掩膜，同时生成两侧的编译输入（几何常量是唯一事实来源，
 勿手改）。改版式 = 改 prerender.py → 重跑 → `pio run` → 烧录。
 
-移植溯源：`reference/waveshare/`（面板驱动与引脚）、`reference/vendor_power/`
-（电源轨 BSP 与厂商深睡写法）、`reference/schematics/`（原理图）。
+移植溯源：`reference/` 目录**不入库**（gitignore，仅本机留档），上游来源——
+
+- 面板驱动与引脚（`waveshare/`）、原理图（`schematics/`）：微雪产品 wiki
+  [ESP32-S3-ePaper-1.54G](https://www.waveshare.com/wiki/ESP32-S3-ePaper-1.54G)
+  的 Resources 区可下载。
+- 电源轨 BSP 与厂商深睡写法（`vendor_power/`，yunliao-s3 例程包）、设计参考图
+  （`design/`）：随厂商例程包拷入，无公开下载链接，换机器前自行备份。
 
 ## 已知坑
 
@@ -140,18 +149,15 @@ nix develop -c python3 tools/serial_cmd.py --send GET      # 自动断言 DTR
 
 - 新版 `tool-esptoolpy`（≥2.41100，2026 起）的注册表包不再自带 `package.json`
   且装后步骤要 pip，nix 的 PIO python 环境没有 pip → `platformio.ini` 固定
-  `platformio/tool-esptoolpy@2.40900.250804`。若 PIO 仍报
-  `MissingPackageManifestError`，手动补一个最小 manifest：
-  ```bash
-  cat > ~/.platformio/packages/tool-esptoolpy/package.json <<'EOF'
-  {"name":"tool-esptoolpy","version":"2.40900.250804","system":["*"],"type":"uploader"}
-  EOF
-  ```
+  `platformio/tool-esptoolpy@2.40900.250804`。若首次 `pio run` 仍报
+  `MissingPackageManifestError`，**退出后重新进一次 `nix develop`**：shellHook
+  检测到包目录缺 manifest 会自动补写。（手动兜底：往
+  `~/.platformio/packages/tool-esptoolpy/` 写一个最小 package.json。）
 - esptool 4.9 顶层 `import intelhex`，nix 的 PIO python 环境没有 → flake 的
   python 环境带了 intelhex，shellHook 把 site-packages 注入 `PYTHONPATH`。
-  因此 **必须经 `nix develop` 进 shell 再跑 pio/esptool**。
-- `tools/flash_watch.sh` 头部硬编码了 flake python 的 store 路径，flake 大改后
-  需更新该路径。
+  因此 **必须经 `nix develop` 进 shell 再跑 pio/esptool**；`flash_watch.sh` /
+  `console_watch.sh` 同理（脚本会自查依赖，缺了会报错提醒，路径均为仓库内
+  相对解析，无机器相关硬编码）。
 
 ### 硬件 / 固件
 

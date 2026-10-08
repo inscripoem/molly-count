@@ -3,9 +3,16 @@
 # console window and send the given commands, then listen for the reply and
 # the refresh/sleep sequence.
 #   usage: console_watch.sh ["GET"] ["SLEEP 90"] ...
+# Run inside `nix develop` — needs the devShell python (pyserial).
 set -u
-PY=/nix/store/8h6cmadbwh5wcyy22g4x6fphswvk2c5m-python3-3.12.12-env/bin/python3
-SERIAL_CMD=/home/inscripoem/dev/molly-count/tools/serial_cmd.py
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="$(command -v python3)"
+SERIAL_CMD="$REPO/tools/serial_cmd.py"
+
+"$PY" -c 'import serial' 2>/dev/null || {
+  echo "[cwatch] need the devShell python (pyserial): run inside nix develop"
+  exit 1
+}
 
 SENDS=()
 for arg in "$@"; do SENDS+=(--send "$arg"); done

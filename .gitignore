@@ -3,5 +3,10 @@
 result
 result-*
 assets/*.png
+# README hero is committed: rendered with the placeholder date (real one via MOLLY_ANNIV)
+!assets/preview_normal.png
 assets/concept/
 firmware/.pio/
+# vendor reference material stays local-only; upstream links in README
+reference/
+__pycache__/

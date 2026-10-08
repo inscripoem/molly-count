@@ -3,11 +3,18 @@
 # of enumeration (the board's awake window after USB plug is short), then
 # runs the first console conversation with the new firmware. Retries on the
 # next port appearance until success or timeout.
+# Run inside `nix develop` — needs the devShell python (pyserial + intelhex).
 set -u
-PY=/nix/store/8h6cmadbwh5wcyy22g4x6fphswvk2c5m-python3-3.12.12-env/bin/python3
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PY="$(command -v python3)"
 ESPTOOL=$HOME/.platformio/packages/tool-esptoolpy/esptool.py
-FW=/home/inscripoem/dev/molly-count/firmware/.pio/build/molly-count
+FW="$REPO/firmware/.pio/build/molly-count"
 BOOTAPP0=$HOME/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin
+
+"$PY" -c 'import serial, intelhex' 2>/dev/null || {
+  echo "[watcher] need the devShell python (pyserial+intelhex): run inside nix develop"
+  exit 1
+}
 
 flash_once() {
   "$PY" "$ESPTOOL" --chip esp32s3 --port /dev/ttyACM0 --baud 460800 \
@@ -25,7 +32,7 @@ first_convo() {
   local now
   now=$(date +"%Y-%m-%d %H:%M:%S")
   sleep 1.2 # let the firmware reach its console window
-  "$PY" /home/inscripoem/dev/molly-count/tools/serial_cmd.py \
+  "$PY" "$REPO/tools/serial_cmd.py" \
     --time 14 --send "SETDATE $now" --send GET --send BTN
 }
 
